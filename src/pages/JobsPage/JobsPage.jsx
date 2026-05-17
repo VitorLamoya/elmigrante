@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { createTranslator, getLanguageConfig } from "../../i18n/translations";
+import { HiOutlineBriefcase, HiOutlineTag } from "react-icons/hi2";
 import "./JobsPage.css";
 
 function normalize(value) {
@@ -18,6 +19,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const t = createTranslator(language);
   const locale = getLanguageConfig(language).locale;
   const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "" });
+  const [phoneModal, setPhoneModal] = useState(false);
   const areas = useMemo(() => [...new Set(jobs.map((job) => job.area))].sort(), [jobs]);
   const contracts = useMemo(() => [...new Set(jobs.map((job) => job.contract))].sort(), [jobs]);
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }), [locale]);
@@ -54,7 +56,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
 
             <header className="job-detail__header">
               <h1>{selectedJob.title}</h1>
-              <p className="job-detail__company">{selectedJob.company}</p>
+              <p className="job-detail__company"><HiOutlineBriefcase color="blue" size={14}/> {selectedJob.company}</p>
             </header>
 
             <div className="job-detail__facts job-detail__facts--grid">
@@ -74,10 +76,6 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                 <small>{t("jobs.published")}</small>
                 <span>{dateFormatter.format(new Date(`${selectedJob.publishedAt}T12:00:00`))}</span>
               </div>
-              <div>
-                <small>{t("jobs.contactMethod")}</small>
-                <span>{selectedJob.contactMethod === "phone" ? t("recruiter.contactMethodPhone") : t("recruiter.contactMethodEmail")}</span>
-              </div>
             </div>
 
             <h3>{t("jobs.description")}</h3><p>{selectedJob.description}</p>
@@ -85,9 +83,59 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
             <h3>{t("jobs.languages")}</h3><p>{selectedJob.languages}</p>
             <h3>{t("jobs.benefits")}</h3><p>{selectedJob.benefits}</p>
 
-            <a className="job-detail__contact" href={getContactHref(selectedJob)}>{contactButtonLabel}</a>
+            <button
+              type="button"
+              className="job-detail__contact"
+              onClick={() => {
+                if (selectedJob.contactMethod === "phone") {
+                  setPhoneModal(true);
+                  return;
+                }
+
+                window.location.href = getContactHref(selectedJob);
+              }}
+            >
+              {selectedJob.contactMethod === "phone"
+                ? t("jobs.applyByPhone")
+                : t("jobs.applyByEmail")}
+            </button>
           </article>
         </section>
+        {phoneModal && (
+          <div className="phone-modal-overlay">
+            <div className="phone-modal">
+              <button
+                className="phone-modal__close"
+                onClick={() => setPhoneModal(false)}
+              >
+                ×
+              </button>
+
+              <h2>{selectedJob.company}</h2>
+
+              <p>
+                {t("jobs.contactRecruiter")}
+              </p>
+
+              <div className="phone-modal__info">
+                <strong>{t("recruiter.contactMethodPhone")}</strong>
+                <span>{selectedJob.contact}</span>
+              </div>
+
+              <div className="phone-modal__info">
+                <strong>{t("recruiter.vacance")}</strong>
+                <span>{selectedJob.title}</span>
+              </div>
+
+              <a
+                className="phone-modal__action"
+                href={`tel:${selectedJob.contact.replace(/[^\d+]/g, "")}`}
+              >
+                {t("recruiter.contactNow")}
+              </a>
+            </div>
+          </div>
+        )}
       </main>
     );
   }

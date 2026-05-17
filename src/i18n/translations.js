@@ -93,6 +93,7 @@ export const translations = {
       backToJobs: "Voltar para todas as vagas",
       notFoundTitle: "Vaga não encontrada",
       notFoundText: "A vaga selecionada não está mais disponível ou foi removida.",
+      contactRecruiter: "Entre em contacto diretamente com o recrutador."
     },
     recruiter: {
       eyebrow: "Área do recrutador",
@@ -119,10 +120,12 @@ export const translations = {
       contactMethodPhone: "Telefone",
       contactEmailPlaceholder: "email@empresa.com",
       contactPhonePlaceholder: "Ex.: +351 912 345 678",
+      contactNow: "Ligar agora",
       languages: "Idiomas",
       language: "Idioma",
       level: "Nível",
       add: "Adicionar",
+      vacance: "Vaga",
       noLanguage: "Nenhum idioma adicionado",
       experience: "Experiência",
       experiencePlaceholder: "Selecione a experiência",
@@ -240,6 +243,7 @@ export const translations = {
       backToJobs: "Back to all jobs",
       notFoundTitle: "Job not found",
       notFoundText: "The selected job is no longer available or has been removed.",
+      contactRecruiter: "Contact the recruiter directly."
     },
     recruiter: {
       eyebrow: "Recruiter area",
@@ -266,10 +270,12 @@ export const translations = {
       contactMethodPhone: "Phone",
       contactEmailPlaceholder: "email@company.com",
       contactPhonePlaceholder: "E.g.: +351 912 345 678",
+      contactNow: "Call now",
       languages: "Languages",
       language: "Language",
       level: "Level",
       add: "Add",
+      vacance: "Role",
       noLanguage: "No language added",
       experience: "Experience",
       experiencePlaceholder: "Select experience",

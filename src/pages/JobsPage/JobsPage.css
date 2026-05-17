@@ -170,6 +170,10 @@
   font-weight: 850;
   text-decoration: none;
   padding: 0 16px;
+
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .job-card a:hover,
@@ -325,6 +329,85 @@
 
 .jobs-empty {
   padding: 28px;
+}
+
+.phone-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 33, 43, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 20px;
+}
+
+.phone-modal {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 28px;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+
+.phone-modal h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #18212b;
+}
+
+.phone-modal p {
+  margin-top: 12px;
+  color: #64717f;
+  line-height: 1.5;
+}
+
+.phone-modal__info {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-modal__info strong {
+  color: #18212b;
+}
+
+.phone-modal__info span {
+  color: #0f766e;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.phone-modal__action {
+  margin-top: 26px;
+  min-height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f766e;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 850;
+}
+
+.phone-modal__action:hover {
+  background: #18212b;
+}
+
+.phone-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f6f5;
+  cursor: pointer;
+  font-size: 20px;
 }
 
 @media (max-width: 1060px) {

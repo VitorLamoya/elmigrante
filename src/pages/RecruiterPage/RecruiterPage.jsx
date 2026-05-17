@@ -108,6 +108,7 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
                 placeholder={form.contactMethod === "email" ? t("recruiter.contactEmailPlaceholder") : t("recruiter.contactPhonePlaceholder")}
               />
             </label>
+            <label>{t("recruiter.experience")}<select name="experience" value={form.experience} onChange={updateField}><option value="" disabled>{t("recruiter.experiencePlaceholder")}</option>{experienceOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
             <div className="language-field">
               <span>{t("recruiter.languages")}</span>
               <div className="language-field__controls">
@@ -120,7 +121,6 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
                 {selectedLanguages.map((item) => <button type="button" key={`${item.language}-${item.level}`} onClick={() => removeLanguage(item)}>{item.language} · {item.level}<span aria-hidden="true">×</span></button>)}
               </div>
             </div>
-            <label>{t("recruiter.experience")}<select name="experience" value={form.experience} onChange={updateField}><option value="" disabled>{t("recruiter.experiencePlaceholder")}</option>{experienceOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
           </div>
           <label>{t("recruiter.description")}<textarea name="description" value={form.description} onChange={updateField} rows="5" placeholder={t("recruiter.descriptionPlaceholder")} /></label>
           <label>{t("recruiter.requirements")}<textarea name="requirements" value={form.requirements} onChange={updateField} rows="4" placeholder={t("recruiter.requirementsPlaceholder")} /></label>
