@@ -1,24 +1,101 @@
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useMemo, useState } from "react";
+import Header from "./components/Header/Header";
+import { initialJobs } from "./data/jobs";
+import JobsPage from "./pages/JobsPage/JobsPage";
+import LandingPage from "./pages/LandingPage/LandingPage";
+import RecruiterPage from "./pages/RecruiterPage/RecruiterPage";
+
+const storageKey = "elmigrante.jobs";
+
+function getRouteFromHash() {
+  const hash = window.location.hash.replace(/^#\/?/, "");
+  const [path, queryString = ""] = hash.split("?");
+  const searchParams = new URLSearchParams(queryString);
+
+  if (!path) {
+    return { name: "home" };
+  }
+
+  const [page, id] = path.split("/");
+
+  if (page === "vagas") {
+    return { name: "jobs", search: searchParams.get("busca") || "" };
+  }
+
+  if (page === "publicar") {
+    return { name: "recruiter" };
+  }
+
+  if (page === "vaga" && id) {
+    return { name: "jobDetail", id };
+  }
+
+  return { name: "home" };
+}
+
+function loadJobs() {
+  try {
+    const savedJobs = JSON.parse(localStorage.getItem(storageKey));
+
+    if (Array.isArray(savedJobs)) {
+      return savedJobs.map((job) => ({
+        ...job,
+        country: job.country || job.state || "",
+      }));
+    }
+  } catch (error) {
+    return initialJobs;
+  }
+
+  return initialJobs;
+}
 
 function App() {
+  const [route, setRoute] = useState(getRouteFromHash);
+  const [jobs, setJobs] = useState(loadJobs);
+
+  useEffect(() => {
+    const handleHashChange = () => setRoute(getRouteFromHash());
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(jobs));
+  }, [jobs]);
+
+  const selectedJob = useMemo(
+    () => jobs.find((job) => job.id === route.id),
+    [jobs, route.id]
+  );
+
+  function handleCreateJob(job) {
+    const id = `${job.title}-${job.company}-${Date.now()}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    const publishedJob = {
+      ...job,
+      id,
+      publishedAt: new Date().toISOString().slice(0, 10),
+    };
+
+    setJobs((currentJobs) => [publishedJob, ...currentJobs]);
+    window.location.hash = "#/vagas";
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <Header />
+      {route.name === "home" && <LandingPage jobs={jobs} />}
+      {route.name === "jobs" && <JobsPage jobs={jobs} initialSearch={route.search} />}
+      {route.name === "jobDetail" && <JobsPage jobs={jobs} selectedJob={selectedJob} />}
+      {route.name === "recruiter" && <RecruiterPage onCreateJob={handleCreateJob} />}
+    </>
   );
 }
 
