@@ -1,182 +1,141 @@
 import { useMemo, useState } from "react";
+import { createTranslator, getLanguageConfig } from "../../i18n/translations";
 import "./JobsPage.css";
 
 function normalize(value) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function formatDate(value) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
+function getContactHref(job) {
+  if (job.contactMethod === "phone") {
+    return `tel:${job.contact.replace(/[^\d+]/g, "")}`;
+  }
+
+  return `mailto:${job.contact}`;
 }
 
-function JobsPage({ jobs, selectedJob, initialSearch = "" }) {
-  const [filters, setFilters] = useState({
-    search: initialSearch,
-    city: "",
-    area: "",
-    contract: "",
-  });
-
+function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
+  const t = createTranslator(language);
+  const locale = getLanguageConfig(language).locale;
+  const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "" });
   const areas = useMemo(() => [...new Set(jobs.map((job) => job.area))].sort(), [jobs]);
-  const contracts = useMemo(
-    () => [...new Set(jobs.map((job) => job.contract))].sort(),
-    [jobs]
-  );
+  const contracts = useMemo(() => [...new Set(jobs.map((job) => job.contract))].sort(), [jobs]);
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }), [locale]);
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      const searchableText = normalize(
-        `${job.title} ${job.company} ${job.city} ${job.country} ${job.area} ${job.contract} ${job.languages}`
+      const searchableText = normalize(`${job.title} ${job.company} ${job.city} ${job.country} ${job.area} ${job.contract} ${job.languages}`);
+      return (
+        searchableText.includes(normalize(filters.search)) &&
+        normalize(`${job.city} ${job.country}`).includes(normalize(filters.city)) &&
+        (!filters.area || job.area === filters.area) &&
+        (!filters.contract || job.contract === filters.contract)
       );
-      const matchesSearch = searchableText.includes(normalize(filters.search));
-      const matchesCity = normalize(`${job.city} ${job.country}`).includes(normalize(filters.city));
-      const matchesArea = !filters.area || job.area === filters.area;
-      const matchesContract = !filters.contract || job.contract === filters.contract;
-
-      return matchesSearch && matchesCity && matchesArea && matchesContract;
     });
   }, [filters, jobs]);
 
-  const jobToShow = selectedJob || filteredJobs[0];
-
-  function updateFilter(event) {
+  const jobToShow = filteredJobs[0];
+  const updateFilter = (event) => {
     const { name, value } = event.target;
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }));
+  };
+
+  if (selectedJob) {
+    const contactButtonLabel = selectedJob.contactMethod === "phone" ? t("jobs.applyByPhone") : t("jobs.applyByEmail");
+
+    return (
+      <main className="jobs-page">
+        <section className="job-detail-page">
+          <article className="job-detail job-detail--full" aria-label={t("jobs.detailLabel")}>
+            <div className="job-detail__topbar">
+              <a className="job-detail__back" href="#/vagas">{t("jobs.backToJobs")}</a>
+              <span className="job-detail__badge">{selectedJob.area}</span>
+            </div>
+
+            <header className="job-detail__header">
+              <h1>{selectedJob.title}</h1>
+              <p className="job-detail__company">{selectedJob.company}</p>
+            </header>
+
+            <div className="job-detail__facts job-detail__facts--grid">
+              <div>
+                <small>{t("jobs.salary")}</small>
+                <strong>{selectedJob.salary}</strong>
+              </div>
+              <div>
+                <small>{t("jobs.location")}</small>
+                <span>{selectedJob.city}, {selectedJob.country}</span>
+              </div>
+              <div>
+                <small>{t("jobs.contract")}</small>
+                <span>{selectedJob.contract}</span>
+              </div>
+              <div>
+                <small>{t("jobs.published")}</small>
+                <span>{dateFormatter.format(new Date(`${selectedJob.publishedAt}T12:00:00`))}</span>
+              </div>
+              <div>
+                <small>{t("jobs.contactMethod")}</small>
+                <span>{selectedJob.contactMethod === "phone" ? t("recruiter.contactMethodPhone") : t("recruiter.contactMethodEmail")}</span>
+              </div>
+            </div>
+
+            <h3>{t("jobs.description")}</h3><p>{selectedJob.description}</p>
+            <h3>{t("jobs.requirements")}</h3><p>{selectedJob.requirements}</p>
+            <h3>{t("jobs.languages")}</h3><p>{selectedJob.languages}</p>
+            <h3>{t("jobs.benefits")}</h3><p>{selectedJob.benefits}</p>
+
+            <a className="job-detail__contact" href={getContactHref(selectedJob)}>{contactButtonLabel}</a>
+          </article>
+        </section>
+      </main>
+    );
   }
 
   return (
     <main className="jobs-page">
       <section className="jobs-hero">
-        <div>
-          <p>Vagas abertas na Europa</p>
-          <h1>Pesquise oportunidades publicadas por recrutadores em diferentes países.</h1>
-        </div>
-        <span>{filteredJobs.length} vagas encontradas</span>
+        <div><p>{t("jobs.eyebrow")}</p><h1>{t("jobs.title")}</h1></div>
+        <span>{filteredJobs.length} {t("jobs.found")}</span>
       </section>
 
       <section className="jobs-layout">
-        <aside className="jobs-filters" aria-label="Filtros de vagas">
-          <label>
-            Cargo, empresa ou idioma
-            <input
-              name="search"
-              type="search"
-              value={filters.search}
-              onChange={updateFilter}
-              placeholder="Ex.: cozinha, inglês"
-            />
-          </label>
-
-          <label>
-            Cidade ou país
-            <input
-              name="city"
-              type="search"
-              value={filters.city}
-              onChange={updateFilter}
-              placeholder="Ex.: Lisboa"
-            />
-          </label>
-
-          <label>
-            Área
-            <select name="area" value={filters.area} onChange={updateFilter}>
-              <option value="">Todas as áreas</option>
-              {areas.map((area) => (
-                <option value={area} key={area}>
-                  {area}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Contrato
-            <select name="contract" value={filters.contract} onChange={updateFilter}>
-              <option value="">Todos os contratos</option>
-              {contracts.map((contract) => (
-                <option value={contract} key={contract}>
-                  {contract}
-                </option>
-              ))}
-            </select>
-          </label>
+        <aside className="jobs-filters" aria-label={t("jobs.filtersLabel")}>
+          <label>{t("jobs.search")}<input name="search" type="search" value={filters.search} onChange={updateFilter} placeholder={t("jobs.searchPlaceholder")} /></label>
+          <label>{t("jobs.city")}<input name="city" type="search" value={filters.city} onChange={updateFilter} placeholder={t("jobs.cityPlaceholder")} /></label>
+          <label>{t("jobs.area")}<select name="area" value={filters.area} onChange={updateFilter}><option value="">{t("jobs.allAreas")}</option>{areas.map((area) => <option value={area} key={area}>{area}</option>)}</select></label>
+          <label>{t("jobs.contract")}<select name="contract" value={filters.contract} onChange={updateFilter}><option value="">{t("jobs.allContracts")}</option>{contracts.map((contract) => <option value={contract} key={contract}>{contract}</option>)}</select></label>
         </aside>
 
-        <section className="jobs-results" aria-label="Lista de vagas">
+        <section className="jobs-results" aria-label={t("jobs.listLabel")}>
           {filteredJobs.map((job) => (
             <article className="job-card" key={job.id}>
-              <div>
-                <span>{job.contract}</span>
-                <h2>{job.title}</h2>
-                <p>{job.company}</p>
-              </div>
+              <div><span>{job.contract}</span><h2>{job.title}</h2><p>{job.company}</p></div>
               <dl>
-                <div>
-                  <dt>Local</dt>
-                  <dd>
-                    {job.city}, {job.country}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Salário</dt>
-                  <dd>{job.salary}</dd>
-                </div>
+                <div><dt>{t("jobs.location")}</dt><dd>{job.city}, {job.country}</dd></div>
+                <div><dt>{t("jobs.salary")}</dt><dd>{job.salary}</dd></div>
               </dl>
-              <a href={`#/vaga/${job.id}`}>Ver detalhes</a>
+              <a href={`#/vaga/${job.id}`}>{t("jobs.details")}</a>
             </article>
           ))}
-
-          {filteredJobs.length === 0 && (
-            <div className="jobs-empty">
-              <h2>Nenhuma vaga encontrada</h2>
-              <p>Revise os filtros ou pesquise por outro cargo, cidade, país ou idioma.</p>
-            </div>
-          )}
+          {filteredJobs.length === 0 && <div className="jobs-empty"><h2>{t("jobs.emptyTitle")}</h2><p>{t("jobs.emptyText")}</p></div>}
         </section>
 
-        <aside className="job-detail" aria-label="Detalhe da vaga">
+        <aside className="job-detail" aria-label={t("jobs.detailLabel")}>
           {jobToShow ? (
             <>
-              <span>{jobToShow.area}</span>
-              <h2>{jobToShow.title}</h2>
-              <p className="job-detail__company">{jobToShow.company}</p>
-
+              <span>{jobToShow.area}</span><h2>{jobToShow.title}</h2><p className="job-detail__company">{jobToShow.company}</p>
               <div className="job-detail__facts">
-                <strong>{jobToShow.salary}</strong>
-                <span>
-                  {jobToShow.city}, {jobToShow.country}
-                </span>
-                <span>{jobToShow.contract}</span>
-                <span>Publicada em {formatDate(jobToShow.publishedAt)}</span>
+                <strong>{jobToShow.salary}</strong><span>{jobToShow.city}, {jobToShow.country}</span><span>{jobToShow.contract}</span>
+                <span>{t("jobs.published")} {dateFormatter.format(new Date(`${jobToShow.publishedAt}T12:00:00`))}</span>
               </div>
-
-              <h3>Descrição</h3>
-              <p>{jobToShow.description}</p>
-
-              <h3>Requisitos</h3>
-              <p>{jobToShow.requirements}</p>
-
-              <h3>Idiomas</h3>
-              <p>{jobToShow.languages}</p>
-
-              <h3>Benefícios</h3>
-              <p>{jobToShow.benefits}</p>
-
-              <a className="job-detail__contact" href={`mailto:${jobToShow.contact}`}>
-                Candidatar-se por e-mail
-              </a>
+              <h3>{t("jobs.description")}</h3><p>{jobToShow.description}</p>
+              <h3>{t("jobs.requirements")}</h3><p>{jobToShow.requirements}</p>
+              <h3>{t("jobs.languages")}</h3><p>{jobToShow.languages}</p>
+              <h3>{t("jobs.benefits")}</h3><p>{jobToShow.benefits}</p>
+              <a className="job-detail__contact" href={getContactHref(jobToShow)}>{jobToShow.contactMethod === "phone" ? t("jobs.applyByPhone") : t("jobs.applyByEmail")}</a>
             </>
-          ) : (
-            <p>Selecione uma vaga para verificar os detalhes.</p>
-          )}
+          ) : <p>{t("jobs.select")}</p>}
         </aside>
       </section>
     </main>

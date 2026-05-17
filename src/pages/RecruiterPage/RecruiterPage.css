@@ -67,21 +67,27 @@
   gap: 18px;
 }
 
-.job-form label {
+.job-form__grid > * {
+  align-self: start;
+}
+
+.job-form label,
+.language-field {
   display: grid;
   gap: 8px;
-  color: #18212b;
+  color: #2b1818;
   font-size: 13px;
   font-weight: 850;
 }
 
 .job-form input,
 .job-form select,
-.job-form textarea {
+.job-form textarea,
+.language-field select {
   width: 100%;
   border: 1px solid #cfd7df;
   border-radius: 8px;
-  color: #18212b;
+  color: #2b1818;
   background: #ffffff;
   font: inherit;
   font-size: 14px;
@@ -90,7 +96,8 @@
 }
 
 .job-form input,
-.job-form select {
+.job-form select,
+.language-field select {
   min-height: 44px;
 }
 
@@ -100,7 +107,8 @@
 
 .job-form input:focus,
 .job-form select:focus,
-.job-form textarea:focus {
+.job-form textarea:focus,
+.language-field select:focus {
   border-color: #0f766e;
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
@@ -124,6 +132,82 @@
   outline: none;
 }
 
+.language-field > span {
+  color: #2b1818;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.language-field__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.language-field__controls button {
+  min-height: 44px;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  color: #0f766e;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 850;
+  cursor: pointer;
+  padding: 0 12px;
+}
+
+.language-field__controls button:hover,
+.language-field__controls button:focus-visible {
+  color: #ffffff;
+  background: #0f766e;
+  outline: none;
+}
+
+.language-field__chips {
+  min-height: 34px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.language-field__chips small {
+  display: inline-flex;
+  align-items: center;
+  color: #64717f;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.language-field__chips button {
+  min-height: 32px;
+  border: 1px solid #cfd7df;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #18212b;
+  background: #f4f6f5;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.language-field__chips button:hover,
+.language-field__chips button:focus-visible {
+  border-color: #0f766e;
+  background: #edf5f1;
+  outline: none;
+}
+
+.language-field__chips span {
+  color: #64717f;
+  font-size: 16px;
+  line-height: 1;
+}
+
 .job-form__alert {
   border: 1px solid #e7c873;
   border-radius: 8px;
@@ -137,7 +221,12 @@
 .recruiter-panel {
   position: sticky;
   top: 92px;
-  padding: 24px;
+  padding: 22px;
+}
+
+.recruiter-panel__header {
+  display: grid;
+  gap: 8px;
 }
 
 .recruiter-panel h2 {
@@ -147,51 +236,98 @@
   line-height: 1.2;
 }
 
+.recruiter-panel__header p {
+  margin: 0;
+  color: #64717f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.recruiter-panel__progress {
+  height: 6px;
+  border-radius: 999px;
+  background: #eef2f4;
+  overflow: hidden;
+  margin-top: 18px;
+}
+
+.recruiter-panel__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0f766e;
+  transition: width 0.2s ease;
+}
+
 .recruiter-panel ul {
-  margin: 20px 0 0;
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid #dbe1e7;
 }
 
 .recruiter-panel li {
-  position: relative;
-  border-bottom: 1px solid #dbe1e7;
+  border: 1px solid #dbe1e7;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   color: #64717f;
-  font-size: 15px;
-  font-weight: 750;
-  line-height: 1.45;
-  padding: 16px 0 16px 38px;
-  transition: color 0.18s ease;
+  background: #fbfcfc;
+  padding: 12px;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
-.recruiter-panel li span {
-  position: absolute;
-  left: 0;
-  top: 15px;
+.recruiter-panel__icon {
   width: 22px;
   height: 22px;
-  border: 2px solid #d8a51f;
+  border: 1px solid #d8a51f;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #8a6200;
+  color: #ffffff;
   background: #fff8df;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   line-height: 1;
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
-.recruiter-panel li.is-complete {
+.recruiter-panel li strong {
+  min-width: 0;
   color: #18212b;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.35;
 }
 
-.recruiter-panel li.is-complete span {
+.recruiter-panel li small {
+  color: #8a6200;
+  background: #fff8df;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.recruiter-panel li.is-complete {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: #f7fbf9;
+}
+
+.recruiter-panel li.is-complete .recruiter-panel__icon {
   border-color: #0f766e;
   color: #ffffff;
   background: #0f766e;
+}
+
+.recruiter-panel li.is-complete small {
+  color: #0f766e;
+  background: #edf5f1;
 }
 
 @media (max-width: 900px) {
@@ -223,6 +359,10 @@
   }
 
   .job-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .language-field__controls {
     grid-template-columns: 1fr;
   }
 }

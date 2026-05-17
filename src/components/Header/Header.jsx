@@ -1,23 +1,50 @@
+import { useEffect, useRef, useState } from "react";
+import { FiChevronDown, FiGlobe } from "react-icons/fi";
+import { createTranslator, languages } from "../../i18n/translations";
 import "./Header.css";
 
-const navigationItems = [
-    { href: "#/", label: "Início" },
-    { href: "#/vagas", label: "Vagas" },
-    { href: "#/publicar", label: "Recrutadores" },
-];
+function Header({ language = "pt", onLanguageChange }) {
+    const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+    const languageRef = useRef(null);
+    const t = createTranslator(language);
+    const activeLanguage = languages.find((option) => option.code === language) || languages[0];
+    const navigationItems = [
+        { href: "#/", label: t("header.home") },
+        { href: "#/vagas", label: t("header.jobs") },
+        { href: "#/publicar", label: t("header.recruiters") },
+    ];
 
-function Header() {
+    useEffect(() => {
+        function handleOutsideClick(event) {
+            if (!languageRef.current?.contains(event.target)) {
+                setIsLanguageOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleOutsideClick);
+        return () => document.removeEventListener("mousedown", handleOutsideClick);
+    }, []);
+
+    function selectLanguage(nextLanguage) {
+        onLanguageChange?.(nextLanguage);
+        setIsLanguageOpen(false);
+    }
+
     return (
         <header className="header">
             <div className="header__container">
-                <a className="header__brand" href="#/">
-                    <span className="header__brand-mark" aria-hidden="true">
-                        EM
+                <a className="header__brand" href="#/" aria-label={t("header.initialPageLabel")}>
+                    <span className="header__logo" aria-hidden="true">
+                        <span className="header__logo-arc"></span>
+                        <span className="header__logo-star"></span>
                     </span>
-                    <span>ElMigrante</span>
+                    <span className="header__brand-text">
+                        <strong>ElMigrante</strong>
+                        <small>{t("header.tagline")}</small>
+                    </span>
                 </a>
 
-                <nav className="header__nav" aria-label="Navegação principal">
+                <nav className="header__nav" aria-label={t("header.navLabel")}>
                     {navigationItems.map((item) => (
                         <a href={item.href} key={item.href}>
                             {item.label}
@@ -27,11 +54,44 @@ function Header() {
 
                 <div className="header__actions">
                     <a className="header__link" href="#/vagas">
-                        Pesquisar vagas
+                        {t("header.findJob")}
                     </a>
+
                     <a className="header__button" href="#/publicar">
-                        Publicar vaga
+                        {t("header.publishJob")}
                     </a>
+
+                    <div className="header__language" ref={languageRef}>
+                        <button
+                            className="header__language-trigger"
+                            type="button"
+                            aria-label={t("header.languageLabel")}
+                            aria-expanded={isLanguageOpen}
+                            onClick={() => setIsLanguageOpen((currentState) => !currentState)}
+                        >
+                            <FiGlobe size={16} aria-hidden="true" />
+                            <span>{activeLanguage.shortLabel}</span>
+                            <FiChevronDown size={14} aria-hidden="true" />
+                        </button>
+
+                        {isLanguageOpen && (
+                            <div className="header__language-dropdown" role="menu">
+                                {languages.map((option) => (
+                                    <button
+                                        className="header__language-option"
+                                        type="button"
+                                        role="menuitemradio"
+                                        aria-checked={language === option.code}
+                                        key={option.code}
+                                        onClick={() => selectLanguage(option.code)}
+                                    >
+                                        <span>{option.label}</span>
+                                        <strong>{option.shortLabel}</strong>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>
