@@ -214,23 +214,49 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
               </div>
             </div>
 
-            <h3>{t("jobs.description")}</h3><p>{selectedJob.description}</p>
-            <h3>{t("jobs.requirements")}</h3><p>{selectedJob.requirements}</p>
-            <h3>{t("jobs.languages")}</h3><p>{selectedJob.languages}</p>
-            <h3>{t("jobs.benefits")}</h3><p>{selectedJob.benefits}</p>
+            <div className="job-detail__sections">
+              <section className="job-detail__section">
+                <h3>{t("jobs.description")}</h3>
+                <p>{selectedJob.description}</p>
+              </section>
+              <section className="job-detail__section">
+                <h3>{t("jobs.requirements")}</h3>
+                <p>{selectedJob.requirements}</p>
+              </section>
+              <section className="job-detail__section">
+                <h3>{t("jobs.languages")}</h3>
+                <p>{selectedJob.languages}</p>
+              </section>
+              <section className="job-detail__section">
+                <h3>{t("jobs.benefits")}</h3>
+                <p>{selectedJob.benefits}</p>
+              </section>
+            </div>
 
-            <button
-              type="button"
-              className="job-detail__contact"
-              onClick={() => {
-                setphoneMailModal(true);
-                return;
-              }}
-            >
-              {selectedJob.contactMethod === "phone"
-                ? t("jobs.applyByPhone")
-                : t("jobs.applyByEmail")}
-            </button>
+            {selectedJob.hasAccommodation && (
+              <section className="job-detail__housing" aria-label={t("jobs.housingTitle")}>
+                <strong>{t("jobs.housingTitle")}</strong>
+                <p>{t("jobs.housingText")}</p>
+              </section>
+            )}
+
+            <aside className="job-detail__apply-panel" aria-label={t("jobs.applyPanelTitle")}>
+                <span>{t("jobs.applyPanelTitle")}</span>
+                <strong>{selectedJob.company}</strong>
+                <p>{t("jobs.applyPanelText")}</p>
+                <button
+                  type="button"
+                  className="job-detail__contact"
+                  onClick={() => {
+                    setphoneMailModal(true);
+                    return;
+                  }}
+                >
+                  {selectedJob.contactMethod === "phone"
+                    ? t("jobs.applyByPhone")
+                    : t("jobs.applyByEmail")}
+                </button>
+              </aside>
 
             <section className="job-detail__faq" aria-label={t("jobs.faqTitle")}>
               <h2>{t("jobs.faqTitle")}</h2>
@@ -271,19 +297,24 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
         </section>
         {phoneMailModal && (
           <div className="phone-modal-overlay">
-            <div className="phone-modal">
+            <div className="phone-modal" role="dialog" aria-modal="true" aria-labelledby="phone-modal-title">
               <button
                 className="phone-modal__close"
                 onClick={() => setphoneMailModal(false)}
+                aria-label={t("jobs.closeModal")}
               >
                 ×
               </button>
 
-              <h2>{selectedJob.company}</h2>
+              <div className="phone-modal__header">
+                <span aria-hidden="true">{selectedJob.contactMethod === "phone" ? "☎" : "✉"}</span>
+                <div>
+                  <p>{selectedJob.contactMethod === "phone" ? t("recruiter.contactMethodPhone") : t("recruiter.contactMethodEmail")}</p>
+                  <h2 id="phone-modal-title">{selectedJob.company}</h2>
+                </div>
+              </div>
 
-              <p>
-                {t("jobs.contactRecruiter")}
-              </p>
+              <p className="phone-modal__intro">{t("jobs.contactRecruiter")}</p>
 
               <div className="phone-modal__info">
                 <strong>

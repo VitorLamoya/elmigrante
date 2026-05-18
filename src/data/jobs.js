@@ -13,6 +13,7 @@ export const initialJobs = [
     contactMethod: "email",
     contact: "vagas@bairroalto.pt",
     isUrgent: true,
+    hasAccommodation: true,
     description:
       "Apoio no preparo de alimentos, organização da cozinha, higienização de utensílios e suporte à equipe durante o atendimento.",
     requirements: "Disponibilidade para escala rotativa, pontualidade e interesse em aprender.",
@@ -33,6 +34,7 @@ export const initialJobs = [
     contactMethod: "email",
     contact: "recrutamento@iberialogistica.es",
     isUrgent: false,
+    hasAccommodation: false,
     description:
       "Recebimento, conferência, separação e organização de produtos em centro de distribuição.",
     requirements: "Disponibilidade para turno diurno e atenção a procedimentos de segurança.",
@@ -53,6 +55,7 @@ export const initialJobs = [
     contactMethod: "phone",
     contact: "+49 30 1234 5678",
     isUrgent: false,
+    hasAccommodation: true,
     description:
       "Atendimento a hóspedes, orientação sobre serviços do hotel, registro de solicitações e apoio à recepção.",
     requirements: "Comunicação clara, organização e disponibilidade para finais de semana.",
@@ -73,6 +76,7 @@ export const initialJobs = [
     contactMethod: "email",
     contact: "selection@servicesurbains.fr",
     isUrgent: false,
+    hasAccommodation: false,
     description:
       "Limpeza e conservação de áreas comuns em prédio comercial, controle de materiais e apoio à equipe operacional.",
     requirements: "Comprometimento, disponibilidade para escala e atenção às normas de segurança.",
@@ -94,6 +98,7 @@ export const emptyJobForm = {
   contactMethod: "email",
   contact: "",
   isUrgent: false,
+  hasAccommodation: false,
   description: "",
   requirements: "",
   benefits: "",

@@ -39,7 +39,7 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
 
   function updateField(event) {
     const { name, value } = event.target;
-    const nextValue = name === "isUrgent" ? value === "yes" : name === "salary" ? formatMoney(value) : value;
+    const nextValue = name === "isUrgent" || name === "hasAccommodation" ? value === "yes" : name === "salary" ? formatMoney(value) : value;
 
     setForm((currentForm) => ({
       ...currentForm,
@@ -84,7 +84,14 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
       <section className="recruiter-hero"><p>{t("recruiter.eyebrow")}</p><h1>{t("recruiter.title")}</h1><span>{t("recruiter.text")}</span></section>
       <section className="recruiter-layout">
         <form className="job-form" onSubmit={handleSubmit}>
+          <div className="job-form__header">
+            <p>{t("recruiter.formEyebrow")}</p>
+            <h2>{t("recruiter.formTitle")}</h2>
+          </div>
           {hasError && <div className="job-form__alert" role="alert">{t("recruiter.error")}</div>}
+          <div className="job-form__section">
+            <span>{t("recruiter.sectionDetails")}</span>
+          </div>
           <div className="job-form__grid">
             <label>{t("recruiter.titleField")}<input name="title" value={form.title} onChange={updateField} placeholder={t("recruiter.titlePlaceholder")} /></label>
             <label>{t("recruiter.company")}<input name="company" value={form.company} onChange={updateField} placeholder={t("recruiter.companyPlaceholder")} /></label>
@@ -98,6 +105,13 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
               <select name="isUrgent" value={form.isUrgent ? "yes" : "no"} onChange={updateField}>
                 <option value="no">{t("recruiter.urgentHiringNo")}</option>
                 <option value="yes">{t("recruiter.urgentHiringYes")}</option>
+              </select>
+            </label>
+            <label>
+              {t("recruiter.accommodation")}
+              <select name="hasAccommodation" value={form.hasAccommodation ? "yes" : "no"} onChange={updateField}>
+                <option value="no">{t("recruiter.accommodationNo")}</option>
+                <option value="yes">{t("recruiter.accommodationYes")}</option>
               </select>
             </label>
             <label>
@@ -131,10 +145,16 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
               </div>
             </div>
           </div>
+          <div className="job-form__section">
+            <span>{t("recruiter.sectionDescription")}</span>
+          </div>
           <label>{t("recruiter.description")}<textarea name="description" value={form.description} onChange={updateField} rows="5" placeholder={t("recruiter.descriptionPlaceholder")} /></label>
           <label>{t("recruiter.requirements")}<textarea name="requirements" value={form.requirements} onChange={updateField} rows="4" placeholder={t("recruiter.requirementsPlaceholder")} /></label>
           <label>{t("recruiter.benefits")}<textarea name="benefits" value={form.benefits} onChange={updateField} rows="4" placeholder={t("recruiter.benefitsPlaceholder")} /></label>
-          <button type="submit">{t("recruiter.submit")}</button>
+          <div className="job-form__footer">
+            <p>{t("recruiter.submitHint")}</p>
+            <button type="submit">{t("recruiter.submit")}</button>
+          </div>
         </form>
         <aside className="recruiter-panel">
           <div className="recruiter-panel__header">
