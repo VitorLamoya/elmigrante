@@ -39,9 +39,11 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
 
   function updateField(event) {
     const { name, value } = event.target;
+    const nextValue = name === "isUrgent" ? value === "yes" : name === "salary" ? formatMoney(value) : value;
+
     setForm((currentForm) => ({
       ...currentForm,
-      [name]: name === "salary" ? formatMoney(value) : value,
+      [name]: nextValue,
       ...(name === "contactMethod" ? { contact: "" } : {}),
     }));
   }
@@ -91,6 +93,13 @@ function RecruiterPage({ onCreateJob, language = "pt" }) {
             <label>{t("recruiter.area")}<select name="area" value={form.area} onChange={updateField} required><option value="" disabled>{t("recruiter.areaPlaceholder")}</option>{areaOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
             <label>{t("recruiter.contract")}<select name="contract" value={form.contract} onChange={updateField} required><option value="" disabled>{t("recruiter.contractPlaceholder")}</option>{contractOptions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
             <label>{t("recruiter.salary")}<input name="salary" inputMode="numeric" value={form.salary} onChange={updateField} placeholder={t("recruiter.salaryPlaceholder")} /></label>
+            <label>
+              {t("recruiter.urgentHiring")}
+              <select name="isUrgent" value={form.isUrgent ? "yes" : "no"} onChange={updateField}>
+                <option value="no">{t("recruiter.urgentHiringNo")}</option>
+                <option value="yes">{t("recruiter.urgentHiringYes")}</option>
+              </select>
+            </label>
             <label>
               {t("recruiter.contactMethod")}
               <select name="contactMethod" value={form.contactMethod} onChange={updateField}>

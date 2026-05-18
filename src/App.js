@@ -44,6 +44,7 @@ function loadJobs() {
         ...job,
         country: job.country || job.state || "",
         contactMethod: job.contactMethod || "email",
+        isUrgent: Boolean(job.isUrgent),
       }));
     }
   } catch (error) {
