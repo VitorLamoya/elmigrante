@@ -16,6 +16,19 @@ export const translations = {
       initialPageLabel: "ElMigrante - página inicial",
       navLabel: "Navegação principal",
     },
+    footer: {
+      company: "A Latech company",
+      navigation: "Navegação",
+      jobs: "Vagas abertas",
+      recruiters: "Para recrutadores",
+      about: "Página inicial",
+      platform: "Plataforma",
+      region: "Foco em oportunidades na Europa",
+      focus: "Vagas para candidatos imigrantes",
+      contact: "Contato direto entre candidato e recrutador",
+      rights: "Todos os direitos reservados.",
+      disclaimer: "Informações das vagas são publicadas pelos recrutadores.",
+    },
     landing: {
       eyebrow: "Portal europeu de vagas ElMigrante",
       title: "Vagas de trabalho na Europa para imigrantes com informação clara e confiável.",
@@ -108,9 +121,27 @@ export const translations = {
       contactMethod: "Forma de contato",
       select: "Selecione uma vaga para verificar os detalhes.",
       backToJobs: "Voltar para todas as vagas",
+      shareJob: "Compartilhar vaga",
+      shareCopied: "Link copiado",
       notFoundTitle: "Vaga não encontrada",
       notFoundText: "A vaga selecionada não está mais disponível ou foi removida.",
-      contactRecruiter: "Entre em contacto diretamente com o recrutador."
+      contactRecruiter: "Entre em contacto diretamente com o recrutador.",
+      faqTitle: "Perguntas frequentes",
+      faqItems: [
+        {
+          question: "Como faço para me candidatar?",
+          answer: "Clique no botão de candidatura e utilize o canal indicado pelo recrutador para enviar os seus dados.",
+        },
+        {
+          question: "Preciso estar logado para ver esta vaga?",
+          answer: "Não. As vagas podem ser consultadas por candidatos logados ou visitantes.",
+        },
+        {
+          question: "A empresa ajuda com documentação?",
+          answer: "Essa informação depende de cada recrutador. Verifique a descrição da vaga e confirme os detalhes no contacto direto.",
+        },
+      ],
+      otherOpenPositions: "Outras vagas abertas"
     },
     recruiter: {
       eyebrow: "Área do recrutador",
@@ -186,6 +217,19 @@ export const translations = {
       languageLabel: "Site language",
       initialPageLabel: "ElMigrante - homepage",
       navLabel: "Main navigation",
+    },
+    footer: {
+      company: "A Latech company",
+      navigation: "Navigation",
+      jobs: "Open jobs",
+      recruiters: "For recruiters",
+      about: "Homepage",
+      platform: "Platform",
+      region: "Focused on opportunities in Europe",
+      focus: "Jobs for immigrant candidates",
+      contact: "Direct contact between candidate and recruiter",
+      rights: "All rights reserved.",
+      disclaimer: "Job information is published by recruiters.",
     },
     landing: {
       eyebrow: "ElMigrante European job portal",
@@ -279,9 +323,27 @@ export const translations = {
       contactMethod: "Contact method",
       select: "Select a job to view details.",
       backToJobs: "Back to all jobs",
+      shareJob: "Share this job",
+      shareCopied: "Link copied",
       notFoundTitle: "Job not found",
       notFoundText: "The selected job is no longer available or has been removed.",
-      contactRecruiter: "Contact the recruiter directly."
+      contactRecruiter: "Contact the recruiter directly.",
+      faqTitle: "Frequently asked questions",
+      faqItems: [
+        {
+          question: "How do I apply?",
+          answer: "Click the application button and use the channel provided by the recruiter to send your details.",
+        },
+        {
+          question: "Do I need to be signed in to view this job?",
+          answer: "No. Jobs can be viewed by signed-in candidates and visitors.",
+        },
+        {
+          question: "Does the company help with documents?",
+          answer: "This depends on each recruiter. Check the job description and confirm the details through direct contact.",
+        },
+      ],
+      otherOpenPositions: "Other open positions"
     },
     recruiter: {
       eyebrow: "Recruiter area",

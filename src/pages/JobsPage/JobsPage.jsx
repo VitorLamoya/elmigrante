@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { createTranslator, getLanguageConfig } from "../../i18n/translations";
+import { FiShare2 } from "react-icons/fi";
 import { HiOutlineBriefcase } from "react-icons/hi2";
 import "./JobsPage.css";
 
@@ -60,6 +61,10 @@ function getTodayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function scrollToPageTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 function getMapCoordinate(job) {
   const cityCountryKey = normalize(`${job.city} ${job.country}`);
   const countryKey = normalize(job.country);
@@ -71,11 +76,14 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const locale = getLanguageConfig(language).locale;
   const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "" });
   const [currentPage, setCurrentPage] = useState(1);
+  const [openFaq, setOpenFaq] = useState(0);
+  const [shareStatus, setShareStatus] = useState("");
   const [phoneMailModal, setphoneMailModal] = useState(false);
   const areas = useMemo(() => [...new Set(jobs.map((job) => job.area))].sort(), [jobs]);
   const contracts = useMemo(() => [...new Set(jobs.map((job) => job.contract))].sort(), [jobs]);
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }), [locale]);
   const todayIso = getTodayIso();
+  const faqItems = t("jobs.faqItems", []);
 
   const filteredJobs = useMemo(() => {
     return jobs
@@ -115,6 +123,14 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const visibleJobs = filteredJobs.slice((currentPage - 1) * JOBS_PER_PAGE, currentPage * JOBS_PER_PAGE);
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
+  const otherOpenJobs = useMemo(() => {
+    if (!selectedJob) return [];
+
+    return jobs
+      .filter((job) => job.id !== selectedJob.id)
+      .sort((firstJob, secondJob) => new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`))
+      .slice(0, 3);
+  }, [jobs, selectedJob]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -124,6 +140,38 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
     const { name, value } = event.target;
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }));
     setCurrentPage(1);
+  };
+
+  const goToPreviousPage = () => {
+    setCurrentPage((page) => Math.max(1, page - 1));
+    scrollToPageTop();
+  };
+
+  const goToNextPage = () => {
+    setCurrentPage((page) => Math.min(totalPages, page + 1));
+    scrollToPageTop();
+  };
+
+  const shareJob = async () => {
+    const url = `${window.location.origin}${window.location.pathname}#/vaga/${selectedJob.id}`;
+    const shareData = {
+      title: selectedJob.title,
+      text: `${selectedJob.title} - ${selectedJob.company}`,
+      url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+      }
+
+      setShareStatus(t("jobs.shareCopied"));
+      window.setTimeout(() => setShareStatus(""), 2400);
+    } catch (error) {
+      setShareStatus("");
+    }
   };
 
   if (selectedJob) {
@@ -137,8 +185,14 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
             </div>
 
             <header className="job-detail__header">
-              <h1>{selectedJob.title}</h1>
-              <p className="job-detail__company"><HiOutlineBriefcase color="blue" size={14}/> {selectedJob.company}</p>
+              <div>
+                <h1>{selectedJob.title}</h1>
+                <p className="job-detail__company"><HiOutlineBriefcase color="blue" size={14}/> {selectedJob.company}</p>
+              </div>
+              <button type="button" className="job-detail__share" onClick={shareJob}>
+                <FiShare2 aria-hidden="true" />
+                <span>{shareStatus || t("jobs.shareJob")}</span>
+              </button>
             </header>
 
             <div className="job-detail__facts job-detail__facts--grid">
@@ -177,6 +231,42 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                 ? t("jobs.applyByPhone")
                 : t("jobs.applyByEmail")}
             </button>
+
+            <section className="job-detail__faq" aria-label={t("jobs.faqTitle")}>
+              <h2>{t("jobs.faqTitle")}</h2>
+              <div className="job-detail__faq-list">
+                {faqItems.map((item, index) => {
+                  const isOpen = openFaq === index;
+
+                  return (
+                    <div className={isOpen ? "job-detail__faq-item is-open" : "job-detail__faq-item"} key={item.question}>
+                      <button type="button" onClick={() => setOpenFaq(isOpen ? -1 : index)} aria-expanded={isOpen}>
+                        <span>{item.question}</span>
+                        <small aria-hidden="true">{isOpen ? "−" : "+"}</small>
+                      </button>
+                      {isOpen && <p>{item.answer}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {otherOpenJobs.length > 0 && (
+              <section className="job-detail__other" aria-label={t("jobs.otherOpenPositions")}>
+                <h2>{t("jobs.otherOpenPositions")}</h2>
+                <div className="job-detail__other-list">
+                  {otherOpenJobs.map((job) => (
+                    <a className="job-detail__other-card" href={`#/vaga/${job.id}`} key={job.id}>
+                      <div>
+                        <strong>{job.title}</strong>
+                        <span>{job.city}, {job.country} · {job.salary}</span>
+                      </div>
+                      <small>{t("jobs.details")} →</small>
+                    </a>
+                  ))}
+                </div>
+              </section>
+            )}
           </article>
         </section>
         {phoneMailModal && (
@@ -320,13 +410,13 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
           ))}
           {filteredJobs.length === 0 && <div className="jobs-empty"><h2>{t("jobs.emptyTitle")}</h2><p>{t("jobs.emptyText")}</p></div>}
           <nav className="jobs-pagination" aria-label={t("jobs.paginationLabel")}>
-            <button type="button" onClick={() => setCurrentPage((page) => page - 1)} disabled={!canGoPrevious}>
+            <button type="button" onClick={goToPreviousPage} disabled={!canGoPrevious}>
               {t("jobs.previousPage")}
             </button>
             <span>
               {t("jobs.page")} {currentPage} {t("jobs.pageOf")} {totalPages}
             </span>
-            <button type="button" onClick={() => setCurrentPage((page) => page + 1)} disabled={!canGoNext}>
+            <button type="button" onClick={goToNextPage} disabled={!canGoNext}>
               {t("jobs.nextPage")}
             </button>
           </nav>

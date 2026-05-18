@@ -86,10 +86,6 @@ function LandingPage({ jobs, language = "pt" }) {
         <ul className="institutional__list" aria-label={t("landing.publicationCriteria")}>{employerItems.map((item) => <li key={item}>{item}</li>)}</ul>
       </section>
 
-      <footer className="footer">
-        <span>ElMigrante <p style={{color: "#999898", fontWeight: "600"}}>A Latech company</p></span>
-        <p>{t("landing.footer")}</p>
-      </footer>
     </main>
   );
 }

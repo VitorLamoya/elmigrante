@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Footer from "./components/Footer/Footer";
 import Header from "./components/Header/Header";
 import { initialJobs } from "./data/jobs";
 import { getLanguageConfig } from "./i18n/translations";
@@ -54,13 +55,20 @@ function loadJobs() {
   return initialJobs;
 }
 
+function scrollToPageTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 function App() {
   const [route, setRoute] = useState(getRouteFromHash);
   const [jobs, setJobs] = useState(loadJobs);
   const [language, setLanguage] = useState(() => localStorage.getItem(languageStorageKey) || "pt");
 
   useEffect(() => {
-    const handleHashChange = () => setRoute(getRouteFromHash());
+    const handleHashChange = () => {
+      setRoute(getRouteFromHash());
+      scrollToPageTop();
+    };
 
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
@@ -111,6 +119,7 @@ function App() {
         )
       )}
       {route.name === "recruiter" && <RecruiterPage onCreateJob={handleCreateJob} language={language} />}
+      <Footer language={language} />
     </>
   );
 }
