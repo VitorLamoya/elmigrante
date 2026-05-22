@@ -1,4 +1,6 @@
 import { createTranslator } from "../../i18n/translations";
+import { getSalaryLabel } from "../../data/jobOptions";
+import { getPlanWhatsAppUrl, planOptions } from "../../data/plans";
 import "./LandingPage.css";
 
 const heroBackground = `url("${process.env.PUBLIC_URL}/images/img-office.jpg")`;
@@ -70,8 +72,35 @@ function LandingPage({ jobs, language = "pt" }) {
             <article className="listing-card" key={job.id}>
               <span>{job.contract}</span><h3>{job.title}</h3>
               <p>{job.company} · {job.city}, {job.country}</p>
-              <strong>{job.salary}</strong><small>{job.languages}</small>
+              <strong>{getSalaryLabel(job.salary, t("jobs.salaryNotInformed"))}</strong><small>{job.languages}</small>
               <a href={`#/vaga/${job.id}`}>{t("landing.details")}</a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="plans" id="planos">
+        <div className="section__header">
+          <p>{t("plans.eyebrow")}</p>
+          <h2>{t("plans.title")}</h2>
+        </div>
+        <div className="plans__grid">
+          {planOptions.map((plan) => (
+            <article className={`plan-card plan-card--${plan.value}${plan.value === "business" ? " plan-card--featured" : ""}`} key={plan.value}>
+              <span>{plan.labels[language]}</span>
+              <h3>{plan.price}</h3>
+              <p>{plan.descriptions[language]}</p>
+              <strong>{plan.limit === null ? t("plans.unlimitedJobs") : `${t("plans.upTo")} ${plan.limit} ${t("plans.activeJobs")}`}</strong>
+              <ul>
+                {plan.features[language].map((feature) => <li key={feature}>{feature}</li>)}
+              </ul>
+              <div className="plan-card__action">
+                {plan.value === "free" ? (
+                  <a href="#/cadastro">{t("plans.startFree")}</a>
+                ) : (
+                  <a href={getPlanWhatsAppUrl(plan, language)} target="_blank" rel="noreferrer">{t("plans.subscribe")}</a>
+                )}
+              </div>
             </article>
           ))}
         </div>

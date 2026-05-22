@@ -2,13 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import Footer from "./components/Footer/Footer";
 import Header from "./components/Header/Header";
 import { initialJobs } from "./data/jobs";
+import {
+  areaOptions,
+  contractOptions,
+  experienceOptions,
+  findCityValue,
+  findCountryValue,
+  findOptionValue,
+} from "./data/jobOptions";
 import { getLanguageConfig } from "./i18n/translations";
+import AuthPage from "./pages/AuthPage/AuthPage";
 import JobsPage from "./pages/JobsPage/JobsPage";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import RecruiterPage from "./pages/RecruiterPage/RecruiterPage";
+import { createJob, getJobs } from "./services/api";
 
 const storageKey = "elmigrante.jobs";
 const languageStorageKey = "elmigrante.language";
+const authStorageKey = "elmigrante.auth";
 
 function getRouteFromHash() {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -25,8 +36,24 @@ function getRouteFromHash() {
     return { name: "jobs", search: searchParams.get("busca") || "" };
   }
 
-  if (page === "publicar") {
+  if (page === "planos") {
+    return { name: "home", anchor: "planos" };
+  }
+
+  if (page === "recrutador") {
     return { name: "recruiter" };
+  }
+
+  if (page === "publicar") {
+    return { name: "publishJob" };
+  }
+
+  if (page === "login") {
+    return { name: "login" };
+  }
+
+  if (page === "cadastro") {
+    return { name: "register" };
   }
 
   if (page === "vaga" && id) {
@@ -44,6 +71,14 @@ function loadJobs() {
       return savedJobs.map((job) => ({
         ...job,
         country: job.country || job.state || "",
+        countryCode: job.countryCode || findCountryValue(job.country || job.state || ""),
+        cityCode: job.cityCode || findCityValue(job.countryCode || findCountryValue(job.country || job.state || ""), job.city),
+        latitude: job.latitude ?? null,
+        longitude: job.longitude ?? null,
+        areaCode: job.areaCode || findOptionValue(areaOptions, job.area),
+        contractCode: job.contractCode || findOptionValue(contractOptions, job.contract),
+        experienceCode: job.experienceCode || findOptionValue(experienceOptions, job.experience),
+        languageItems: Array.isArray(job.languageItems) ? job.languageItems : [],
         contactMethod: job.contactMethod || "email",
         isUrgent: Boolean(job.isUrgent),
         hasAccommodation: Boolean(job.hasAccommodation),
@@ -64,6 +99,13 @@ function App() {
   const [route, setRoute] = useState(getRouteFromHash);
   const [jobs, setJobs] = useState(loadJobs);
   const [language, setLanguage] = useState(() => localStorage.getItem(languageStorageKey) || "pt");
+  const [authSession, setAuthSession] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(authStorageKey));
+    } catch (error) {
+      return null;
+    }
+  });
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -76,42 +118,71 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(jobs));
-  }, [jobs]);
+    async function loadRemoteJobs() {
+      try {
+        const remoteJobs = await getJobs();
+        setJobs(remoteJobs.length > 0 ? remoteJobs : loadJobs());
+      } catch (error) {
+        setJobs(loadJobs());
+      }
+    }
+
+    loadRemoteJobs();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(languageStorageKey, language);
     document.documentElement.lang = getLanguageConfig(language).htmlLang;
   }, [language]);
 
+  useEffect(() => {
+    if (authSession?.session?.access_token) {
+      localStorage.setItem(authStorageKey, JSON.stringify(authSession));
+    } else {
+      localStorage.removeItem(authStorageKey);
+    }
+  }, [authSession]);
+
+  useEffect(() => {
+    if (!route.anchor) return;
+
+    window.setTimeout(() => {
+      document.getElementById(route.anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }, [route]);
+
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === route.id),
     [jobs, route.id]
   );
 
-  function handleCreateJob(job) {
-    const id = `${job.title}-${job.company}-${Date.now()}`
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+  async function handleCreateJob(job) {
+    const token = authSession?.session?.access_token;
 
-    const publishedJob = {
-      ...job,
-      id,
-      publishedAt: new Date().toISOString().slice(0, 10),
-    };
+    if (!token) {
+      window.location.hash = "#/login";
+      return;
+    }
 
-    setJobs((currentJobs) => [publishedJob, ...currentJobs]);
-    window.location.hash = "#/vagas";
+    const publishedJob = await createJob(job, token);
+    setJobs((currentJobs) => [publishedJob, ...currentJobs.filter((currentJob) => currentJob.id !== publishedJob.id)]);
+    return publishedJob;
+  }
+
+  function handleLogout() {
+    setAuthSession(null);
+    if (route.name === "recruiter" || route.name === "publishJob") {
+      window.location.hash = "#/login";
+    }
   }
 
   return (
     <>
-      <Header language={language} onLanguageChange={setLanguage} />
+      <Header language={language} onLanguageChange={setLanguage} authSession={authSession} onLogout={handleLogout} />
       {route.name === "home" && <LandingPage jobs={jobs} language={language} />}
       {route.name === "jobs" && <JobsPage jobs={jobs} initialSearch={route.search} language={language} />}
+      {route.name === "login" && <AuthPage language={language} mode="login" onAuth={setAuthSession} />}
+      {route.name === "register" && <AuthPage language={language} mode="register" onAuth={setAuthSession} />}
       {route.name === "jobDetail" && (
         selectedJob ? (
           <JobsPage jobs={jobs} selectedJob={selectedJob} language={language} />
@@ -119,7 +190,20 @@ function App() {
           <JobsPage jobs={jobs} initialSearch="" language={language} />
         )
       )}
-      {route.name === "recruiter" && <RecruiterPage onCreateJob={handleCreateJob} language={language} />}
+      {route.name === "recruiter" && (
+        authSession?.session?.access_token ? (
+          <RecruiterPage authSession={authSession} mode="dashboard" onCreateJob={handleCreateJob} language={language} />
+        ) : (
+          <AuthPage language={language} mode="login" onAuth={setAuthSession} />
+        )
+      )}
+      {route.name === "publishJob" && (
+        authSession?.session?.access_token ? (
+          <RecruiterPage authSession={authSession} mode="publish" onCreateJob={handleCreateJob} language={language} />
+        ) : (
+          <AuthPage language={language} mode="login" onAuth={setAuthSession} />
+        )
+      )}
       <Footer language={language} />
     </>
   );

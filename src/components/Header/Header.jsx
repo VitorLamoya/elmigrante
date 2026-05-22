@@ -3,15 +3,17 @@ import { FiChevronDown, FiGlobe } from "react-icons/fi";
 import { createTranslator, languages } from "../../i18n/translations";
 import "./Header.css";
 
-function Header({ language = "pt", onLanguageChange }) {
+function Header({ language = "pt", onLanguageChange, authSession, onLogout }) {
     const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+    const [currentHash, setCurrentHash] = useState(window.location.hash || "#/");
     const languageRef = useRef(null);
     const t = createTranslator(language);
     const activeLanguage = languages.find((option) => option.code === language) || languages[0];
+    const isAuthenticated = Boolean(authSession?.session?.access_token);
     const navigationItems = [
         { href: "#/", label: t("header.home") },
         { href: "#/vagas", label: t("header.jobs") },
-        { href: "#/publicar", label: t("header.recruiters") },
+        { href: "#/recrutador", label: t("header.recruiters") },
     ];
 
     useEffect(() => {
@@ -25,9 +27,26 @@ function Header({ language = "pt", onLanguageChange }) {
         return () => document.removeEventListener("mousedown", handleOutsideClick);
     }, []);
 
+    useEffect(() => {
+        function syncHash() {
+            setCurrentHash(window.location.hash || "#/");
+        }
+
+        window.addEventListener("hashchange", syncHash);
+        return () => window.removeEventListener("hashchange", syncHash);
+    }, []);
+
     function selectLanguage(nextLanguage) {
         onLanguageChange?.(nextLanguage);
         setIsLanguageOpen(false);
+    }
+
+    function isActiveNavigationItem(href) {
+        if (href === "#/") {
+            return currentHash === "" || currentHash === "#/" || currentHash === "#/planos";
+        }
+
+        return currentHash.startsWith(href);
     }
 
     return (
@@ -46,20 +65,35 @@ function Header({ language = "pt", onLanguageChange }) {
 
                 <nav className="header__nav" aria-label={t("header.navLabel")}>
                     {navigationItems.map((item) => (
-                        <a href={item.href} key={item.href}>
+                        <a href={item.href} aria-current={isActiveNavigationItem(item.href) ? "page" : undefined} key={item.href}>
                             {item.label}
                         </a>
                     ))}
                 </nav>
 
                 <div className="header__actions">
-                    <a className="header__link" href="#/vagas">
-                        {t("header.findJob")}
-                    </a>
-
-                    <a className="header__button" href="#/publicar">
-                        {t("header.publishJob")}
-                    </a>
+                    {isAuthenticated ? (
+                        <>
+                            <a className="header__link header__link--panel" href="#/recrutador">
+                                {t("header.dashboard")}
+                            </a>
+                            <a className="header__button" href="#/publicar">
+                                {t("header.publishJob")}
+                            </a>
+                            <button className="header__logout" type="button" onClick={onLogout}>
+                                {t("header.logout")}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <a className="header__link" href="#/vagas">
+                                {t("header.findJob")}
+                            </a>
+                            <a className="header__button" href="#/login">
+                                {t("header.login")}
+                            </a>
+                        </>
+                    )}
 
                     <div className="header__language" ref={languageRef}>
                         <button

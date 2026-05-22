@@ -1,50 +1,22 @@
 import { useMemo, useEffect, useState } from "react";
+import JobsMap from "../../components/JobsMap/JobsMap";
+import {
+  areaOptions,
+  contractOptions,
+  experienceOptions,
+  getLocalizedJob,
+  getOptionLabel,
+  getSalaryLabel,
+  languageLevelOptions,
+  languageOptions,
+} from "../../data/jobOptions";
 import { createTranslator, getLanguageConfig } from "../../i18n/translations";
-import { FiShare2 } from "react-icons/fi";
+import { FiSearch, FiShare2, FiX } from "react-icons/fi";
 import { HiOutlineBriefcase } from "react-icons/hi2";
+import { trackJobEvent } from "../../services/api";
 import "./JobsPage.css";
 
 const JOBS_PER_PAGE = 10;
-const mapCoordinates = {
-  "lisboa portugal": { x: 20, y: 64 },
-  "porto portugal": { x: 18, y: 61 },
-  "portugal": { x: 20, y: 70 },
-  "madrid espanha": { x: 29, y: 70 },
-  "barcelona espanha": { x: 36, y: 66 },
-  "espanha": { x: 30, y: 70 },
-  "paris franca": { x: 43, y: 53 },
-  "franca": { x: 42, y: 57 },
-  "berlim alemanha": { x: 54, y: 43 },
-  "munique alemanha": { x: 52, y: 55 },
-  "alemanha": { x: 53, y: 47 },
-  "roma italia": { x: 55, y: 71 },
-  "milan italia": { x: 51, y: 61 },
-  "italia": { x: 55, y: 68 },
-  "amsterda holanda": { x: 47, y: 43 },
-  "amsterdam holanda": { x: 47, y: 43 },
-  "holanda": { x: 47, y: 43 },
-  "bruxelas belgica": { x: 45, y: 47 },
-  "belgica": { x: 45, y: 47 },
-  "londres reino unido": { x: 38, y: 44 },
-  "reino unido": { x: 38, y: 44 },
-  "dublin irlanda": { x: 31, y: 42 },
-  "irlanda": { x: 31, y: 42 },
-  "viena austria": { x: 58, y: 56 },
-  "austria": { x: 58, y: 56 },
-  "zurique suica": { x: 48, y: 58 },
-  "suica": { x: 48, y: 58 },
-  "varsovia polonia": { x: 64, y: 43 },
-  "polonia": { x: 64, y: 43 },
-  "praga republica tcheca": { x: 57, y: 50 },
-  "republica tcheca": { x: 57, y: 50 },
-  "copenhague dinamarca": { x: 52, y: 34 },
-  "dinamarca": { x: 52, y: 34 },
-  "estocolmo suecia": { x: 60, y: 24 },
-  "suecia": { x: 60, y: 24 },
-  "oslo noruega": { x: 52, y: 20 },
-  "noruega": { x: 52, y: 20 },
-};
-
 function normalize(value) {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -61,52 +33,91 @@ function getTodayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getLanguageRows(job, language) {
+  if (Array.isArray(job.languageItems) && job.languageItems.length > 0) {
+    return job.languageItems.map((item) => ({
+      language: getOptionLabel(languageOptions, item.language, language),
+      level: getOptionLabel(languageLevelOptions, item.level, language),
+    }));
+  }
+
+  return (job.languages || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [languageLabel, levelLabel = ""] = item.split("·").map((value) => value.trim());
+      return { language: languageLabel, level: levelLabel };
+    });
+}
+
 function scrollToPageTop() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
-function getMapCoordinate(job) {
-  const cityCountryKey = normalize(`${job.city} ${job.country}`);
-  const countryKey = normalize(job.country);
-  return mapCoordinates[cityCountryKey] || mapCoordinates[countryKey] || { x: 50, y: 50 };
+function hasSalary(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length > 0 && Number(digits) > 0;
 }
 
 function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const t = createTranslator(language);
   const locale = getLanguageConfig(language).locale;
-  const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "" });
+  const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "", language: "", experience: "", highlight: "" });
   const [currentPage, setCurrentPage] = useState(1);
   const [openFaq, setOpenFaq] = useState(0);
   const [shareStatus, setShareStatus] = useState("");
   const [phoneMailModal, setphoneMailModal] = useState(false);
-  const areas = useMemo(() => [...new Set(jobs.map((job) => job.area))].sort(), [jobs]);
-  const contracts = useMemo(() => [...new Set(jobs.map((job) => job.contract))].sort(), [jobs]);
+  const areas = useMemo(() => areaOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
+  const contracts = useMemo(() => contractOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
+  const languageFilters = useMemo(() => languageOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
+  const experiences = useMemo(() => experienceOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }), [locale]);
   const todayIso = getTodayIso();
   const faqItems = t("jobs.faqItems", []);
+  const hasActiveFilters = Object.values(filters).some(Boolean);
 
   const filteredJobs = useMemo(() => {
     return jobs
       .filter((job) => {
-        const searchableText = normalize(`${job.title} ${job.company} ${job.city} ${job.country} ${job.area} ${job.contract} ${job.languages}`);
+        const localizedJob = getLocalizedJob(job, language);
+        const searchableText = normalize(`${job.title} ${job.company} ${localizedJob.city} ${localizedJob.country} ${localizedJob.area} ${localizedJob.contract} ${localizedJob.languages} ${localizedJob.experience} ${job.description} ${job.requirements} ${job.benefits}`);
+        const languageLabel = filters.language ? getOptionLabel(languageOptions, filters.language, language) : "";
+        const matchesLanguage = !filters.language || (
+          Array.isArray(job.languageItems) && job.languageItems.length > 0
+            ? job.languageItems.some((item) => item.language === filters.language)
+            : normalize(localizedJob.languages).includes(normalize(languageLabel))
+        );
+        const matchesExperience = !filters.experience || job.experienceCode === filters.experience || localizedJob.experience === filters.experience;
+        const matchesHighlight =
+          !filters.highlight ||
+          (filters.highlight === "urgent" && job.isUrgent) ||
+          (filters.highlight === "today" && job.publishedAt === todayIso) ||
+          (filters.highlight === "housing" && job.hasAccommodation) ||
+          (filters.highlight === "salary" && hasSalary(job.salary));
+
         return (
           searchableText.includes(normalize(filters.search)) &&
-          normalize(`${job.city} ${job.country}`).includes(normalize(filters.city)) &&
-          (!filters.area || job.area === filters.area) &&
-          (!filters.contract || job.contract === filters.contract)
+          normalize(`${localizedJob.city} ${localizedJob.country}`).includes(normalize(filters.city)) &&
+          (!filters.area || job.areaCode === filters.area || localizedJob.area === filters.area) &&
+          (!filters.contract || job.contractCode === filters.contract || localizedJob.contract === filters.contract) &&
+          matchesLanguage &&
+          matchesExperience &&
+          matchesHighlight
         );
       })
       .sort((firstJob, secondJob) => new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`));
-  }, [filters, jobs]);
+  }, [filters, jobs, language, todayIso]);
 
   const mapLocations = useMemo(() => {
     const groupedLocations = filteredJobs.reduce((locations, job) => {
-      const key = `${job.city}, ${job.country}`;
-      const coordinate = getMapCoordinate(job);
+      const localizedJob = getLocalizedJob(job, language);
+      const key = `${localizedJob.city}, ${localizedJob.country}`;
 
       if (!locations[key]) {
         locations[key] = {
-          ...coordinate,
+          latitude: job.latitude,
+          longitude: job.longitude,
           label: key,
           count: 0,
         };
@@ -117,7 +128,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
     }, {});
 
     return Object.values(groupedLocations).sort((firstLocation, secondLocation) => secondLocation.count - firstLocation.count);
-  }, [filteredJobs]);
+  }, [filteredJobs, language]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / JOBS_PER_PAGE));
   const visibleJobs = filteredJobs.slice((currentPage - 1) * JOBS_PER_PAGE, currentPage * JOBS_PER_PAGE);
@@ -131,14 +142,32 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
       .sort((firstJob, secondJob) => new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`))
       .slice(0, 3);
   }, [jobs, selectedJob]);
+  const selectedJobDisplay = selectedJob ? getLocalizedJob(selectedJob, language) : null;
+  const selectedJobSalary = selectedJob ? getSalaryLabel(selectedJob.salary, t("jobs.salaryNotInformed")) : "";
+  const selectedJobLanguages = selectedJob ? getLanguageRows(selectedJob, language) : [];
+
+  useEffect(() => {
+    if (!selectedJob?.id) return;
+    trackJobEvent(selectedJob.id, "view").catch(() => {});
+  }, [selectedJob?.id]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
 
+  useEffect(() => {
+    setFilters((currentFilters) => ({ ...currentFilters, search: initialSearch }));
+    setCurrentPage(1);
+  }, [initialSearch]);
+
   const updateFilter = (event) => {
     const { name, value } = event.target;
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }));
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters({ search: "", city: "", area: "", contract: "", language: "", experience: "", highlight: "" });
     setCurrentPage(1);
   };
 
@@ -181,7 +210,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
           <article className="job-detail job-detail--full" aria-label={t("jobs.detailLabel")}>
             <div className="job-detail__topbar">
               <a className="job-detail__back" href="#/vagas">{t("jobs.backToJobs")}</a>
-              <span className="job-detail__badge">{selectedJob.area}</span>
+              <span className="job-detail__badge">{selectedJobDisplay.area}</span>
             </div>
 
             <header className="job-detail__header">
@@ -198,15 +227,15 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
             <div className="job-detail__facts job-detail__facts--grid">
               <div>
                 <small>{t("jobs.salary")}</small>
-                <strong>{selectedJob.salary}</strong>
+                <strong>{selectedJobSalary}</strong>
               </div>
               <div>
                 <small>{t("jobs.location")}</small>
-                <span>{selectedJob.city}, {selectedJob.country}</span>
+                <span>{selectedJobDisplay.city}, {selectedJobDisplay.country}</span>
               </div>
               <div>
                 <small>{t("jobs.contract")}</small>
-                <span>{selectedJob.contract}</span>
+                <span>{selectedJobDisplay.contract}</span>
               </div>
               <div>
                 <small>{t("jobs.published")}</small>
@@ -225,7 +254,15 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
               </section>
               <section className="job-detail__section">
                 <h3>{t("jobs.languages")}</h3>
-                <p>{selectedJob.languages}</p>
+                <ul className="job-detail__language-list">
+                  {selectedJobLanguages.map((item) => (
+                    <li key={`${item.language}-${item.level}`}>
+                      <span aria-hidden="true"></span>
+                      <strong>{item.language}</strong>
+                      {item.level && <small>{item.level}</small>}
+                    </li>
+                  ))}
+                </ul>
               </section>
               <section className="job-detail__section">
                 <h3>{t("jobs.benefits")}</h3>
@@ -248,6 +285,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                   type="button"
                   className="job-detail__contact"
                   onClick={() => {
+                    trackJobEvent(selectedJob.id, "contact_click").catch(() => {});
                     setphoneMailModal(true);
                     return;
                   }}
@@ -285,7 +323,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                     <a className="job-detail__other-card" href={`#/vaga/${job.id}`} key={job.id}>
                       <div>
                         <strong>{job.title}</strong>
-                        <span>{job.city}, {job.country} · {job.salary}</span>
+                        <span>{getLocalizedJob(job, language).city}, {getLocalizedJob(job, language).country} · {getSalaryLabel(job.salary, t("jobs.salaryNotInformed"))}</span>
                       </div>
                       <small>{t("jobs.details")} →</small>
                     </a>
@@ -369,76 +407,100 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
             ))}
           </ul>
         </div>
-        <div className="jobs-map__visual" aria-hidden="true">
-          <svg className="jobs-map__canvas" viewBox="0 0 760 360" role="img">
-            <path className="jobs-map__land" d="M112 142L156 104L224 82L314 94L394 66L520 90L612 136L654 218L600 284L460 306L348 278L244 300L154 250Z" />
-            <path className="jobs-map__region" d="M286 112L322 70L392 78L434 124L404 180L330 174Z" />
-            <path className="jobs-map__region" d="M440 114L518 92L590 126L616 190L554 232L482 196Z" />
-            <path className="jobs-map__region" d="M210 188L274 166L330 206L306 274L226 294L172 244Z" />
-            <path className="jobs-map__region" d="M392 214L458 198L510 242L496 314L430 322L382 270Z" />
-            <path className="jobs-map__road jobs-map__road--main" d="M150 238C230 210 280 198 350 210C432 224 486 198 596 154" />
-            <path className="jobs-map__road jobs-map__road--main" d="M222 292C270 242 306 212 358 174C410 136 464 116 588 128" />
-            <path className="jobs-map__road" d="M198 132C272 146 342 150 414 124C474 102 538 104 626 166" />
-            <path className="jobs-map__road" d="M342 278C386 236 412 198 438 152C462 110 494 90 542 92" />
-            <text x="132" y="232">Lisboa</text>
-            <text x="252" y="246">Madrid</text>
-            <text x="392" y="174">Paris</text>
-            <text x="488" y="142">Berlim</text>
-          </svg>
-          <div className="jobs-map__pins">
-            {mapLocations.map((location) => (
-              <span
-                className="jobs-map__point"
-                key={location.label}
-                style={{
-                  left: `${location.x}%`,
-                  top: `${location.y}%`,
-                  "--point-size": `${Math.min(32, 14 + location.count * 4)}px`,
-                }}
-                title={`${location.label}: ${location.count}`}
-              >
-                <span></span>
-                <small>{location.count}</small>
-              </span>
-            ))}
-          </div>
+        <div className="jobs-map__visual">
+          <JobsMap locations={mapLocations} jobLabel={t("jobs.mapJob")} jobsLabel={t("jobs.mapJobs")} />
         </div>
       </section>
 
       <section className="jobs-layout">
         <aside className="jobs-filters" aria-label={t("jobs.filtersLabel")}>
-          <label>{t("jobs.search")}<input name="search" type="search" value={filters.search} onChange={updateFilter} placeholder={t("jobs.searchPlaceholder")} /></label>
-          <label>{t("jobs.city")}<input name="city" type="search" value={filters.city} onChange={updateFilter} placeholder={t("jobs.cityPlaceholder")} /></label>
-          <label>{t("jobs.area")}<select name="area" value={filters.area} onChange={updateFilter}><option value="">{t("jobs.allAreas")}</option>{areas.map((area) => <option value={area} key={area}>{area}</option>)}</select></label>
-          <label>{t("jobs.contract")}<select name="contract" value={filters.contract} onChange={updateFilter}><option value="">{t("jobs.allContracts")}</option>{contracts.map((contract) => <option value={contract} key={contract}>{contract}</option>)}</select></label>
+          <div className="jobs-filters__header">
+            <p>{t("jobs.filtersLabel")}</p>
+            <h2>{t("jobs.filtersTitle")}</h2>
+            <span>{filteredJobs.length} {t("jobs.found")}</span>
+          </div>
+          <div className="jobs-filters__body">
+            <label className="jobs-filter__field jobs-filter__field--search">
+              <span>{t("jobs.search")}</span>
+              <div>
+                <FiSearch aria-hidden="true" />
+                <input name="search" type="search" value={filters.search} onChange={updateFilter} placeholder={t("jobs.searchPlaceholder")} />
+              </div>
+            </label>
+            <label className="jobs-filter__field">
+              <span>{t("jobs.city")}</span>
+              <input name="city" type="search" value={filters.city} onChange={updateFilter} placeholder={t("jobs.cityPlaceholder")} />
+            </label>
+            <label className="jobs-filter__field">
+              <span>{t("jobs.area")}</span>
+              <select name="area" value={filters.area} onChange={updateFilter}><option value="">{t("jobs.allAreas")}</option>{areas.map((area) => <option value={area.value} key={area.value}>{area.label}</option>)}</select>
+            </label>
+            <label className="jobs-filter__field">
+              <span>{t("jobs.contract")}</span>
+              <select name="contract" value={filters.contract} onChange={updateFilter}><option value="">{t("jobs.allContracts")}</option>{contracts.map((contract) => <option value={contract.value} key={contract.value}>{contract.label}</option>)}</select>
+            </label>
+            <label className="jobs-filter__field">
+              <span>{t("jobs.languageFilter")}</span>
+              <select name="language" value={filters.language} onChange={updateFilter}><option value="">{t("jobs.allLanguages")}</option>{languageFilters.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select>
+            </label>
+            <label className="jobs-filter__field">
+              <span>{t("jobs.experienceFilter")}</span>
+              <select name="experience" value={filters.experience} onChange={updateFilter}><option value="">{t("jobs.allExperiences")}</option>{experiences.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select>
+            </label>
+            <label className="jobs-filter__field">
+              <span>{t("jobs.highlightsFilter")}</span>
+              <select name="highlight" value={filters.highlight} onChange={updateFilter}>
+                <option value="">{t("jobs.allHighlights")}</option>
+                <option value="urgent">{t("jobs.highlightUrgent")}</option>
+                <option value="today">{t("jobs.highlightToday")}</option>
+                <option value="housing">{t("jobs.highlightHousing")}</option>
+                <option value="salary">{t("jobs.highlightSalary")}</option>
+              </select>
+            </label>
+            <button className="jobs-filters__clear" type="button" onClick={clearFilters} disabled={!hasActiveFilters}>
+              <FiX aria-hidden="true" />
+              {t("jobs.clearFilters")}
+            </button>
+          </div>
         </aside>
 
         <section className="jobs-results" aria-label={t("jobs.listLabel")}>
-          {visibleJobs.map((job) => (
-            <article className="job-card" key={job.id}>
-              <div className="job-card__meta">
-                <span className="job-card__contract">{job.contract}</span>
-                <div className="job-card__flags" aria-label="Job highlights">
+          {visibleJobs.map((job) => {
+            const localizedJob = getLocalizedJob(job, language);
+
+            return (
+              <article className="job-card" key={job.id}>
+                <header className="job-card__header">
+                  <div>
+                    <h2>{job.title}</h2>
+                    <p>{job.company}</p>
+                    <div className="job-card__summary">
+                      <span>{localizedJob.city}, {localizedJob.country}</span>
+                      <span>{getSalaryLabel(job.salary, t("jobs.salaryNotInformed"))}</span>
+                      <span>{t("jobs.postedOn")} {dateFormatter.format(new Date(`${job.publishedAt}T12:00:00`))}</span>
+                    </div>
+                  </div>
+                </header>
+                <div className="job-card__tags" aria-label="Job highlights">
+                  <span className="job-card__contract">{localizedJob.contract}</span>
                   {job.isUrgent && <span className="job-card__flag job-card__flag--urgent">{t("jobs.urgentFlag")}</span>}
                   {job.publishedAt === todayIso && <span className="job-card__flag job-card__flag--today">{t("jobs.todayFlag")}</span>}
+                  {job.hasAccommodation && <span className="job-card__flag job-card__flag--housing">{t("jobs.housingTag")}</span>}
                 </div>
-              </div>
-              <div>
-                <h2>{job.title}</h2>
-                <p>{job.company}</p>
-              </div>
-              <div className="job-card__description">
-                <strong>{t("jobs.description")}</strong>
-                <p>{job.description}</p>
-              </div>
-              <dl>
-                <div><dt>{t("jobs.location")}</dt><dd>{job.city}, {job.country}</dd></div>
-                <div><dt>{t("jobs.salary")}</dt><dd>{job.salary}</dd></div>
-                <div><dt>{t("jobs.postedOn")}</dt><dd>{dateFormatter.format(new Date(`${job.publishedAt}T12:00:00`))}</dd></div>
-              </dl>
-              <a href={`#/vaga/${job.id}`}>{t("jobs.details")}</a>
-            </article>
-          ))}
+                <div className="job-card__description">
+                  <strong>{t("jobs.description")}</strong>
+                  <p>{job.description}</p>
+                </div>
+                <footer className="job-card__footer">
+                  <div className="job-card__meta">
+                    <span>{localizedJob.area}</span>
+                    <span>{job.views || 0} {t("jobs.viewsCount")}</span>
+                  </div>
+                  <a href={`#/vaga/${job.id}`}>{t("jobs.details")}</a>
+                </footer>
+              </article>
+            );
+          })}
           {filteredJobs.length === 0 && <div className="jobs-empty"><h2>{t("jobs.emptyTitle")}</h2><p>{t("jobs.emptyText")}</p></div>}
           <nav className="jobs-pagination" aria-label={t("jobs.paginationLabel")}>
             <button type="button" onClick={goToPreviousPage} disabled={!canGoPrevious}>

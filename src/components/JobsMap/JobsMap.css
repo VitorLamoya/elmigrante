@@ -1,0 +1,17 @@
+.real-jobs-map {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  min-height: 300px;
+  height: 100%;
+}
+
+.real-jobs-map .leaflet-pane,
+.real-jobs-map .leaflet-top,
+.real-jobs-map .leaflet-bottom {
+  z-index: 1;
+}
+
+.real-jobs-map .leaflet-control-attribution {
+  font-size: 10px;
+}
