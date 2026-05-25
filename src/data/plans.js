@@ -11,27 +11,27 @@ export const planOptions = [
       en: "For starting to post jobs and track candidate interest.",
     },
     features: {
-      pt: ["Ate 5 vagas ativas", "Analytics do painel", "Publicacao de vagas"],
+      pt: ["Ate 5 vagas ativas", "Analytics do painel", "Publicação de vagas"],
       en: ["Up to 5 active jobs", "Dashboard analytics", "Job posting"],
     },
   },
   {
     value: "pro",
-    price: "€29/mes",
+    price: "€19/mes",
     limit: 15,
     labels: { pt: "Pro", en: "Pro" },
     descriptions: {
-      pt: "Para recrutadores com publicacao recorrente e necessidade de exportacao.",
+      pt: "Para recrutadores com publicação recorrente e necessidade de exportação.",
       en: "For recruiters with recurring posts and export needs.",
     },
     features: {
-      pt: ["Ate 15 vagas ativas", "Exportacao CSV", "Analytics", "Suporte em horario comercial"],
+      pt: ["Ate 15 vagas ativas", "Exportação CSV", "Analytics", "Suporte em horario comercial"],
       en: ["Up to 15 active jobs", "CSV export", "Analytics", "Business-hours support"],
     },
   },
   {
     value: "business",
-    price: "€79/mes",
+    price: "€59/mes",
     limit: 50,
     labels: { pt: "Business", en: "Business" },
     descriptions: {
@@ -39,21 +39,21 @@ export const planOptions = [
       en: "For companies with higher job volume across different cities.",
     },
     features: {
-      pt: ["Ate 50 vagas ativas", "Promoção de vagas", "Exportacao CSV", "Analytics", "Suporte 24 horas dedicado"],
+      pt: ["Ate 50 vagas ativas", "Promoção de vagas", "Exportação CSV", "Analytics", "Suporte 24 horas dedicado"],
       en: ["Up to 50 active jobs", "Promoted job placement", "CSV export", "Analytics", "Dedicated 24-hour support"],
     },
   },
   {
     value: "enterprise",
-    price: "€199/mes",
+    price: "€109/mes",
     limit: null,
     labels: { pt: "Enterprise", en: "Enterprise" },
     descriptions: {
-      pt: "Para operacoes que precisam de escala, suporte dedicado e customizacoes.",
+      pt: "Para operacoes que precisam de escala, suporte dedicado e customizações.",
       en: "For operations that need scale, dedicated support and customizations.",
     },
     features: {
-      pt: ["Vagas ilimitadas", "Promoção de vagas", "Exportacao CSV", "Analytics", "Desenvolvedor 100% dedicado", "Customizacoes", "Suporte 24 horas dedicado"],
+      pt: ["Vagas ilimitadas", "Promoção de vagas", "Exportação CSV", "Analytics", "Desenvolvedor 100% dedicado", "Customizações", "Suporte 24 horas dedicado"],
       en: ["Unlimited jobs", "Promoted job placement", "CSV export", "Analytics", "100% dedicated developer", "Customizations", "Dedicated 24-hour support"],
     },
   },
