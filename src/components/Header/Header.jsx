@@ -54,8 +54,7 @@ function Header({ language = "pt", onLanguageChange, authSession, onLogout }) {
             <div className="header__container">
                 <a className="header__brand" href="#/" aria-label={t("header.initialPageLabel")}>
                     <span className="header__logo" aria-hidden="true">
-                        <span className="header__logo-arc"></span>
-                        <span className="header__logo-star"></span>
+                        <img src={`${process.env.PUBLIC_URL}/images/logo.png`} alt="" />
                     </span>
                     <span className="header__brand-text">
                         <strong>ElMigrante</strong>

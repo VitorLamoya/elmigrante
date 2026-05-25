@@ -87,3 +87,12 @@ export function createJob(job, token) {
     body: JSON.stringify(job),
   });
 }
+
+export function deleteJob(jobId, token) {
+  return request(`/jobs/${jobId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}

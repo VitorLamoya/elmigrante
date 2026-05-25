@@ -20,6 +20,8 @@ export const initialJobs = [
     experienceCode: "none",
     contactMethod: "email",
     contact: "vagas@bairroalto.pt",
+    recruiterPlan: "pro",
+    isPromoted: false,
     isUrgent: true,
     hasAccommodation: true,
     description:
@@ -49,6 +51,8 @@ export const initialJobs = [
     experienceCode: "1-year",
     contactMethod: "email",
     contact: "recrutamento@iberialogistica.es",
+    recruiterPlan: "free",
+    isPromoted: false,
     isUrgent: false,
     hasAccommodation: false,
     description:
@@ -78,6 +82,8 @@ export const initialJobs = [
     experienceCode: "2-years",
     contactMethod: "phone",
     contact: "+49 30 1234 5678",
+    recruiterPlan: "business",
+    isPromoted: true,
     isUrgent: false,
     hasAccommodation: true,
     description:
@@ -107,6 +113,8 @@ export const initialJobs = [
     experienceCode: "none",
     contactMethod: "email",
     contact: "selection@servicesurbains.fr",
+    recruiterPlan: "free",
+    isPromoted: false,
     isUrgent: false,
     hasAccommodation: false,
     description:

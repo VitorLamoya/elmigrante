@@ -29,6 +29,10 @@ function hasText(value) {
   return value.trim().length > 0;
 }
 
+function getFilledLength(value) {
+  return value.trim().length;
+}
+
 function formatMoney(value) {
   const digits = value.replace(/\D/g, "");
   const amount = Number(digits);
@@ -36,7 +40,7 @@ function formatMoney(value) {
   return digits && amount > 0 ? `€ ${amount.toLocaleString("pt-BR")}` : "";
 }
 
-function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language = "pt" }) {
+function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJob, language = "pt" }) {
   const t = createTranslator(language);
   const [form, setForm] = useState(emptyJobForm);
   const [submitted, setSubmitted] = useState(false);
@@ -47,6 +51,8 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
   const [recruiterSummary, setRecruiterSummary] = useState(defaultRecruiterSummary);
   const [selectedDashboardJobId, setSelectedDashboardJobId] = useState("");
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
+  const [deletingJobId, setDeletingJobId] = useState("");
+  const [jobPendingDelete, setJobPendingDelete] = useState(null);
   const cityOptions = getCityOptions(form.countryCode);
   const recommended = t("recruiter.recommended", []);
   const token = authSession?.session?.access_token;
@@ -57,6 +63,7 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
   const jobLimit = recruiterSummary.jobLimit ?? Math.max(activeJobs, 1);
   const planUsage = recruiterSummary.jobLimit === null ? 100 : Math.min((activeJobs / jobLimit) * 100, 100);
   const planLabel = t(`recruiter.planLabels.${recruiterSummary.plan}`, recruiterSummary.plan);
+  const planBadgeClassName = `plan-badge plan-badge--${recruiterSummary.plan || "free"}`;
   const remainingJobs = recruiterSummary.jobLimit === null ? t("recruiter.unlimitedJobs") : Math.max(jobLimit - activeJobs, 0);
   const hasReachedLimit = recruiterSummary.jobLimit !== null && activeJobs >= jobLimit;
   const totalViews = recruiterSummary.totals?.views || 0;
@@ -154,6 +161,39 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
     syncLanguages(selectedLanguages.filter((item) => item.language !== languageToRemove.language || item.level !== languageToRemove.level));
   }
 
+  function openDeleteModal(jobId) {
+    const jobToDelete = recruiterSummary.jobs.find((job) => job.id === jobId);
+    if (!jobToDelete) return;
+    setJobPendingDelete(jobToDelete);
+  }
+
+  function closeDeleteModal() {
+    if (deletingJobId) return;
+    setJobPendingDelete(null);
+  }
+
+  async function handleDeletePublishedJob() {
+    if (!jobPendingDelete) return;
+
+    try {
+      setSubmitError("");
+      setDeletingJobId(jobPendingDelete.id);
+      await onDeleteJob?.(jobPendingDelete.id);
+      setRecruiterSummary((currentSummary) => ({
+        ...currentSummary,
+        jobs: currentSummary.jobs.filter((job) => job.id !== jobPendingDelete.id),
+      }));
+      if (selectedDashboardJobId === jobPendingDelete.id) {
+        setSelectedDashboardJobId("");
+      }
+      setJobPendingDelete(null);
+    } catch (error) {
+      setSubmitError(error.message);
+    } finally {
+      setDeletingJobId("");
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setSubmitted(true);
@@ -166,7 +206,20 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
 
     try {
       setIsSubmitting(true);
-      const publishedJob = await onCreateJob(form);
+      const publishedJob = await onCreateJob({
+        ...form,
+        title: form.title.trim(),
+        company: form.company.trim(),
+        city: form.city.trim(),
+        country: form.country.trim(),
+        area: form.area.trim(),
+        contract: form.contract.trim(),
+        salary: form.salary.trim(),
+        contact: form.contact.trim(),
+        description: form.description.trim(),
+        requirements: form.requirements.trim(),
+        benefits: form.benefits.trim(),
+      });
       if (publishedJob) {
         setRecruiterSummary((currentSummary) => ({
           ...currentSummary,
@@ -205,7 +258,7 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
           </article>
           <article>
             <span>{t("recruiter.currentPlan")}</span>
-            <strong>{planLabel}</strong>
+            <strong className={planBadgeClassName}>{planLabel}</strong>
           </article>
           <article>
             <span>{t("recruiter.activeAds")}</span>
@@ -252,6 +305,7 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
                 </div>
                 <a className="admin-section-header__button" href="#/publicar">{t("recruiter.publishNewJob")}</a>
               </div>
+              {submitError && <div className="admin-jobs__alert" role="alert">{submitError}</div>}
               <div className="admin-jobs__table">
                 {recruiterSummary.jobs.length > 0 && (
                   <div className="admin-job-row admin-job-row--head" aria-hidden="true">
@@ -316,6 +370,14 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
                     </div>
                   </dl>
                   <a className="job-insight-panel__link" href={`#/vaga/${selectedDashboardJob.id}`}>{t("recruiter.viewPublicJob")}</a>
+                  <button
+                    type="button"
+                    className="job-insight-panel__delete"
+                    onClick={() => openDeleteModal(selectedDashboardJob.id)}
+                    disabled={deletingJobId === selectedDashboardJob.id}
+                  >
+                    {deletingJobId === selectedDashboardJob.id ? t("recruiter.deletingJob") : t("recruiter.deleteJob")}
+                  </button>
                 </>
               )}
             </section>
@@ -337,6 +399,45 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
             </section>
           </aside>
         </section>
+        {jobPendingDelete && (
+          <div className="recruiter-modal-overlay">
+            <div className="recruiter-modal" role="dialog" aria-modal="true" aria-labelledby="delete-job-modal-title">
+              <button
+                type="button"
+                className="recruiter-modal__close"
+                onClick={closeDeleteModal}
+                aria-label={t("jobs.closeModal")}
+                disabled={Boolean(deletingJobId)}
+              >
+                ×
+              </button>
+              <div className="recruiter-modal__header">
+                <span>{t("recruiter.deleteJob")}</span>
+                <h2 id="delete-job-modal-title">{jobPendingDelete.title}</h2>
+                <p>{jobPendingDelete.company}</p>
+              </div>
+              <p className="recruiter-modal__text">{t("recruiter.deleteConfirm").replace("{title}", jobPendingDelete.title)}</p>
+              <div className="recruiter-modal__meta">
+                <div>
+                  <strong>{t("recruiter.location")}</strong>
+                  <span>{jobPendingDelete.city}, {jobPendingDelete.country}</span>
+                </div>
+                <div>
+                  <strong>{t("recruiter.status")}</strong>
+                  <span>{t("recruiter.published")}</span>
+                </div>
+              </div>
+              <div className="recruiter-modal__actions">
+                <button type="button" className="recruiter-modal__button recruiter-modal__button--secondary" onClick={closeDeleteModal} disabled={Boolean(deletingJobId)}>
+                  {t("recruiter.cancelDelete")}
+                </button>
+                <button type="button" className="recruiter-modal__button recruiter-modal__button--danger" onClick={handleDeletePublishedJob} disabled={Boolean(deletingJobId)}>
+                  {deletingJobId ? t("recruiter.deletingJob") : t("recruiter.confirmDelete")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -352,7 +453,7 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
         </article>
         <article>
           <span>{t("recruiter.currentPlan")}</span>
-          <strong>{planLabel}</strong>
+          <strong className={planBadgeClassName}>{planLabel}</strong>
         </article>
         <article>
           <span>{t("recruiter.activeAds")}</span>
@@ -431,9 +532,36 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, language 
           <div className="job-form__section">
             <span>{t("recruiter.sectionDescription")}</span>
           </div>
-          <label>{t("recruiter.description")}<textarea name="description" value={form.description} onChange={updateField} rows="5" placeholder={t("recruiter.descriptionPlaceholder")} /></label>
-          <label>{t("recruiter.requirements")}<textarea name="requirements" value={form.requirements} onChange={updateField} rows="4" placeholder={t("recruiter.requirementsPlaceholder")} /></label>
-          <label>{t("recruiter.benefits")}<textarea name="benefits" value={form.benefits} onChange={updateField} rows="4" placeholder={t("recruiter.benefitsPlaceholder")} /></label>
+          <div className="job-form__text-grid">
+            <label className="job-form__textarea-card job-form__textarea-card--primary">
+              <span className="job-form__textarea-head">
+                <strong>{t("recruiter.description")}</strong>
+                <small>{t("recruiter.descriptionHelp")}</small>
+              </span>
+              <textarea name="description" value={form.description} onChange={updateField} rows="6" placeholder={t("recruiter.descriptionPlaceholder")} />
+              <em>{getFilledLength(form.description)} {t("recruiter.charactersCount")}</em>
+            </label>
+            <div className="job-form__text-columns">
+              <label className="job-form__textarea-card">
+                <span className="job-form__textarea-head">
+                  <strong>{t("recruiter.requirements")}</strong>
+                  <small className="job-form__optional-tag">{t("recruiter.optionalTag")}</small>
+                </span>
+                <span className="job-form__textarea-note">{t("recruiter.requirementsHelp")}</span>
+                <textarea name="requirements" value={form.requirements} onChange={updateField} rows="5" placeholder={t("recruiter.requirementsPlaceholder")} />
+                <em>{getFilledLength(form.requirements)} {t("recruiter.charactersCount")}</em>
+              </label>
+              <label className="job-form__textarea-card">
+                <span className="job-form__textarea-head">
+                  <strong>{t("recruiter.benefits")}</strong>
+                  <small className="job-form__optional-tag">{t("recruiter.optionalTag")}</small>
+                </span>
+                <span className="job-form__textarea-note">{t("recruiter.benefitsHelp")}</span>
+                <textarea name="benefits" value={form.benefits} onChange={updateField} rows="5" placeholder={t("recruiter.benefitsPlaceholder")} />
+                <em>{getFilledLength(form.benefits)} {t("recruiter.charactersCount")}</em>
+              </label>
+            </div>
+          </div>
           <div className="job-form__footer">
             <p>{t("recruiter.submitHint")}</p>
             <button type="submit" disabled={isSubmitting || hasReachedLimit}>{isSubmitting ? t("recruiter.submitting") : t("recruiter.submit")}</button>

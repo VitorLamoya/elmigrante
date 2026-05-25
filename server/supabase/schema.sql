@@ -27,6 +27,7 @@ create table if not exists public.jobs (
   contact text not null,
   is_urgent boolean not null default false,
   has_accommodation boolean not null default false,
+  recruiter_plan text not null default 'free',
   status text not null default 'published',
   published_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -35,6 +36,7 @@ create table if not exists public.jobs (
 
 alter table public.jobs add column if not exists latitude double precision;
 alter table public.jobs add column if not exists longitude double precision;
+alter table public.jobs add column if not exists recruiter_plan text not null default 'free';
 
 create index if not exists jobs_status_published_at_idx
   on public.jobs (status, published_at desc);

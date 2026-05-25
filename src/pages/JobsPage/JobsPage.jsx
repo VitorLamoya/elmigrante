@@ -11,7 +11,7 @@ import {
   languageOptions,
 } from "../../data/jobOptions";
 import { createTranslator, getLanguageConfig } from "../../i18n/translations";
-import { FiSearch, FiShare2, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiSearch, FiShare2, FiX } from "react-icons/fi";
 import { HiOutlineBriefcase } from "react-icons/hi2";
 import { trackJobEvent } from "../../services/api";
 import "./JobsPage.css";
@@ -60,6 +60,20 @@ function hasSalary(value) {
   return digits.length > 0 && Number(digits) > 0;
 }
 
+function getTextOrFallback(value, fallback) {
+  return String(value || "").trim() || fallback;
+}
+
+function getPromotionPriority(job) {
+  return job.isPromoted ? 1 : 0;
+}
+
+function getPromotedPlanClass(plan) {
+  if (plan === "enterprise") return "enterprise";
+  if (plan === "business") return "business";
+  return "pro";
+}
+
 function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const t = createTranslator(language);
   const locale = getLanguageConfig(language).locale;
@@ -106,7 +120,12 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
           matchesHighlight
         );
       })
-      .sort((firstJob, secondJob) => new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`));
+      .sort((firstJob, secondJob) => {
+        const promotionDifference = getPromotionPriority(secondJob) - getPromotionPriority(firstJob);
+        if (promotionDifference !== 0) return promotionDifference;
+
+        return new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`);
+      });
   }, [filters, jobs, language, todayIso]);
 
   const mapLocations = useMemo(() => {
@@ -132,6 +151,13 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / JOBS_PER_PAGE));
   const visibleJobs = filteredJobs.slice((currentPage - 1) * JOBS_PER_PAGE, currentPage * JOBS_PER_PAGE);
+  const paginationPages = useMemo(() => {
+    const pageSet = new Set([1, currentPage - 1, currentPage, currentPage + 1, totalPages]);
+
+    return Array.from(pageSet)
+      .filter((page) => page >= 1 && page <= totalPages)
+      .sort((firstPage, secondPage) => firstPage - secondPage);
+  }, [currentPage, totalPages]);
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
   const otherOpenJobs = useMemo(() => {
@@ -139,12 +165,20 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
 
     return jobs
       .filter((job) => job.id !== selectedJob.id)
-      .sort((firstJob, secondJob) => new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`))
+      .sort((firstJob, secondJob) => {
+        const promotionDifference = getPromotionPriority(secondJob) - getPromotionPriority(firstJob);
+        if (promotionDifference !== 0) return promotionDifference;
+
+        return new Date(`${secondJob.publishedAt}T12:00:00`) - new Date(`${firstJob.publishedAt}T12:00:00`);
+      })
       .slice(0, 3);
   }, [jobs, selectedJob]);
   const selectedJobDisplay = selectedJob ? getLocalizedJob(selectedJob, language) : null;
   const selectedJobSalary = selectedJob ? getSalaryLabel(selectedJob.salary, t("jobs.salaryNotInformed")) : "";
   const selectedJobLanguages = selectedJob ? getLanguageRows(selectedJob, language) : [];
+  const selectedJobRequirements = selectedJob ? getTextOrFallback(selectedJob.requirements, t("jobs.textNotInformed")) : "";
+  const selectedJobBenefits = selectedJob ? getTextOrFallback(selectedJob.benefits, t("jobs.textNotInformed")) : "";
+  const selectedJobPromotionClass = selectedJob ? getPromotedPlanClass(selectedJob.recruiterPlan) : "pro";
 
   useEffect(() => {
     if (!selectedJob?.id) return;
@@ -181,6 +215,11 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
     scrollToPageTop();
   };
 
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    scrollToPageTop();
+  };
+
   const shareJob = async () => {
     const url = `${window.location.origin}${window.location.pathname}#/vaga/${selectedJob.id}`;
     const shareData = {
@@ -210,7 +249,10 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
           <article className="job-detail job-detail--full" aria-label={t("jobs.detailLabel")}>
             <div className="job-detail__topbar">
               <a className="job-detail__back" href="#/vagas">{t("jobs.backToJobs")}</a>
-              <span className="job-detail__badge">{selectedJobDisplay.area}</span>
+              <div className="job-detail__topbar-tags">
+                <span className="job-detail__badge">{selectedJobDisplay.area}</span>
+                {selectedJob.isPromoted && <span className={`job-detail__badge job-detail__badge--promoted job-detail__badge--promoted-${selectedJobPromotionClass}`}>{t("jobs.promotedFlag")}</span>}
+              </div>
             </div>
 
             <header className="job-detail__header">
@@ -250,7 +292,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
               </section>
               <section className="job-detail__section">
                 <h3>{t("jobs.requirements")}</h3>
-                <p>{selectedJob.requirements}</p>
+                <p className={selectedJob.requirements?.trim() ? "" : "job-detail__text--fallback"}>{selectedJobRequirements}</p>
               </section>
               <section className="job-detail__section">
                 <h3>{t("jobs.languages")}</h3>
@@ -266,7 +308,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
               </section>
               <section className="job-detail__section">
                 <h3>{t("jobs.benefits")}</h3>
-                <p>{selectedJob.benefits}</p>
+                <p className={selectedJob.benefits?.trim() ? "" : "job-detail__text--fallback"}>{selectedJobBenefits}</p>
               </section>
             </div>
 
@@ -467,9 +509,10 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
         <section className="jobs-results" aria-label={t("jobs.listLabel")}>
           {visibleJobs.map((job) => {
             const localizedJob = getLocalizedJob(job, language);
+            const promotionClass = getPromotedPlanClass(job.recruiterPlan);
 
             return (
-              <article className="job-card" key={job.id}>
+              <article className={job.isPromoted ? `job-card job-card--promoted job-card--promoted-${promotionClass}` : "job-card"} key={job.id}>
                 <header className="job-card__header">
                   <div>
                     <h2>{job.title}</h2>
@@ -480,6 +523,11 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                       <span>{t("jobs.postedOn")} {dateFormatter.format(new Date(`${job.publishedAt}T12:00:00`))}</span>
                     </div>
                   </div>
+                  {job.isPromoted && (
+                    <span className={`job-card__promotion job-card__promotion--${promotionClass}`}>
+                      {t("jobs.promotedFlag")}
+                    </span>
+                  )}
                 </header>
                 <div className="job-card__tags" aria-label="Job highlights">
                   <span className="job-card__contract">{localizedJob.contract}</span>
@@ -503,15 +551,33 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
           })}
           {filteredJobs.length === 0 && <div className="jobs-empty"><h2>{t("jobs.emptyTitle")}</h2><p>{t("jobs.emptyText")}</p></div>}
           <nav className="jobs-pagination" aria-label={t("jobs.paginationLabel")}>
-            <button type="button" onClick={goToPreviousPage} disabled={!canGoPrevious}>
-              {t("jobs.previousPage")}
-            </button>
-            <span>
-              {t("jobs.page")} {currentPage} {t("jobs.pageOf")} {totalPages}
-            </span>
-            <button type="button" onClick={goToNextPage} disabled={!canGoNext}>
-              {t("jobs.nextPage")}
-            </button>
+            <div className="jobs-pagination__summary">
+              <strong>{t("jobs.page")} {currentPage}</strong>
+              <span>{t("jobs.pageOf")} {totalPages}</span>
+            </div>
+            <div className="jobs-pagination__controls">
+              <button className="jobs-pagination__arrow" type="button" onClick={goToPreviousPage} disabled={!canGoPrevious} aria-label={t("jobs.previousPage")}>
+                <FiChevronLeft aria-hidden="true" />
+                <span>{t("jobs.previousPage")}</span>
+              </button>
+              <div className="jobs-pagination__pages">
+                {paginationPages.map((page) => (
+                  <button
+                    className={page === currentPage ? "is-current" : ""}
+                    type="button"
+                    onClick={() => goToPage(page)}
+                    aria-current={page === currentPage ? "page" : undefined}
+                    key={page}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button className="jobs-pagination__arrow" type="button" onClick={goToNextPage} disabled={!canGoNext} aria-label={t("jobs.nextPage")}>
+                <span>{t("jobs.nextPage")}</span>
+                <FiChevronRight aria-hidden="true" />
+              </button>
+            </div>
           </nav>
         </section>
       </section>

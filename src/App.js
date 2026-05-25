@@ -15,11 +15,15 @@ import AuthPage from "./pages/AuthPage/AuthPage";
 import JobsPage from "./pages/JobsPage/JobsPage";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import RecruiterPage from "./pages/RecruiterPage/RecruiterPage";
-import { createJob, getJobs } from "./services/api";
+import { createJob, deleteJob, getJobs } from "./services/api";
 
 const storageKey = "elmigrante.jobs";
 const languageStorageKey = "elmigrante.language";
 const authStorageKey = "elmigrante.auth";
+
+function hasPromotedPlacement(plan) {
+  return plan === "business" || plan === "enterprise";
+}
 
 function getRouteFromHash() {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -80,6 +84,8 @@ function loadJobs() {
         experienceCode: job.experienceCode || findOptionValue(experienceOptions, job.experience),
         languageItems: Array.isArray(job.languageItems) ? job.languageItems : [],
         contactMethod: job.contactMethod || "email",
+        recruiterPlan: job.recruiterPlan || "free",
+        isPromoted: hasPromotedPlacement(job.recruiterPlan || "free"),
         isUrgent: Boolean(job.isUrgent),
         hasAccommodation: Boolean(job.hasAccommodation),
       }));
@@ -169,6 +175,18 @@ function App() {
     return publishedJob;
   }
 
+  async function handleDeleteJob(jobId) {
+    const token = authSession?.session?.access_token;
+
+    if (!token) {
+      window.location.hash = "#/login";
+      return;
+    }
+
+    await deleteJob(jobId, token);
+    setJobs((currentJobs) => currentJobs.filter((currentJob) => currentJob.id !== jobId));
+  }
+
   function handleLogout() {
     setAuthSession(null);
     if (route.name === "recruiter" || route.name === "publishJob") {
@@ -192,14 +210,14 @@ function App() {
       )}
       {route.name === "recruiter" && (
         authSession?.session?.access_token ? (
-          <RecruiterPage authSession={authSession} mode="dashboard" onCreateJob={handleCreateJob} language={language} />
+          <RecruiterPage authSession={authSession} mode="dashboard" onCreateJob={handleCreateJob} onDeleteJob={handleDeleteJob} language={language} />
         ) : (
           <AuthPage language={language} mode="login" onAuth={setAuthSession} />
         )
       )}
       {route.name === "publishJob" && (
         authSession?.session?.access_token ? (
-          <RecruiterPage authSession={authSession} mode="publish" onCreateJob={handleCreateJob} language={language} />
+          <RecruiterPage authSession={authSession} mode="publish" onCreateJob={handleCreateJob} onDeleteJob={handleDeleteJob} language={language} />
         ) : (
           <AuthPage language={language} mode="login" onAuth={setAuthSession} />
         )

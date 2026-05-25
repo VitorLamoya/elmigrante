@@ -11,6 +11,10 @@ const PLAN_LIMITS = {
 };
 const TRACKABLE_EVENTS = new Set(["view", "contact_click"]);
 
+function hasPromotedPlacement(plan) {
+  return plan === "business" || plan === "enterprise";
+}
+
 function isMissingEventsTableError(error) {
   return error?.code === "42P01" || /job_events|visitor_id|schema cache/i.test(error?.message || "");
 }
@@ -18,6 +22,7 @@ function isMissingEventsTableError(error) {
 function toClientJob(row) {
   return {
     id: row.id,
+    recruiterId: row.recruiter_id,
     title: row.title,
     company: row.company,
     city: row.city,
@@ -42,6 +47,8 @@ function toClientJob(row) {
     contact: row.contact,
     isUrgent: row.is_urgent,
     hasAccommodation: row.has_accommodation,
+    recruiterPlan: row.recruiter_plan || "free",
+    isPromoted: hasPromotedPlacement(row.recruiter_plan || "free"),
     publishedAt: row.published_at?.slice(0, 10),
     views: row.views || 0,
     contactClicks: row.contactClicks || 0,
@@ -80,6 +87,40 @@ function toDatabaseJob(body) {
 
 function getRecruiterPlan(user) {
   return user?.user_metadata?.plan || user?.app_metadata?.plan || "free";
+}
+
+async function buildRecruiterPlanMap(recruiterIds = []) {
+  const uniqueRecruiterIds = [...new Set(recruiterIds.filter(Boolean))];
+
+  if (uniqueRecruiterIds.length === 0) {
+    return {};
+  }
+
+  const entries = await Promise.all(
+    uniqueRecruiterIds.map(async (recruiterId) => {
+      const { data, error } = await supabaseAdmin.auth.admin.getUserById(recruiterId);
+
+      if (error) {
+        return [recruiterId, "free"];
+      }
+
+      return [recruiterId, getRecruiterPlan(data.user)];
+    })
+  );
+
+  return Object.fromEntries(entries);
+}
+
+function attachRecruiterPlanToJobs(jobs, recruiterPlanById = {}) {
+  return jobs.map((job) => {
+    const recruiterPlan = recruiterPlanById[job.recruiterId] || job.recruiterPlan || "free";
+
+    return {
+      ...job,
+      recruiterPlan,
+      isPromoted: hasPromotedPlacement(recruiterPlan),
+    };
+  });
 }
 
 async function countRecruiterPublishedJobs(recruiterId) {
@@ -152,6 +193,7 @@ router.get("/", async (_request, response) => {
   }
 
   const jobs = data.map(toClientJob);
+  const recruiterPlanById = await buildRecruiterPlanMap(jobs.map((job) => job.recruiterId));
   const jobIds = jobs.map((job) => job.id);
   let metricsByJobId = {};
 
@@ -168,7 +210,7 @@ router.get("/", async (_request, response) => {
     metricsByJobId = buildJobMetrics(events || []);
   }
 
-  return response.json(attachMetricsToJobs(jobs, metricsByJobId));
+  return response.json(attachRecruiterPlanToJobs(attachMetricsToJobs(jobs, metricsByJobId), recruiterPlanById));
 });
 
 router.get("/mine", requireAuth, async (request, response) => {
@@ -183,7 +225,8 @@ router.get("/mine", requireAuth, async (request, response) => {
     return response.status(500).json({ error: error.message });
   }
 
-  const jobs = data.map(toClientJob);
+  const plan = getRecruiterPlan(request.user);
+  const jobs = attachRecruiterPlanToJobs(data.map(toClientJob), { [request.user.id]: plan });
   const jobIds = jobs.map((job) => job.id);
   let metricsByJobId = {};
 
@@ -210,7 +253,6 @@ router.get("/mine", requireAuth, async (request, response) => {
     }),
     { views: 0, contactClicks: 0, recentViews: 0, recentContactClicks: 0 }
   );
-  const plan = getRecruiterPlan(request.user);
   const jobLimit = Object.prototype.hasOwnProperty.call(PLAN_LIMITS, plan) ? PLAN_LIMITS[plan] : PLAN_LIMITS.free;
 
   return response.json({
@@ -272,7 +314,8 @@ router.get("/:id", async (request, response) => {
     return response.status(404).json({ error: "Job not found." });
   }
 
-  return response.json(toClientJob(data));
+  const recruiterPlanById = await buildRecruiterPlanMap([data.recruiter_id]);
+  return response.json(attachRecruiterPlanToJobs([toClientJob(data)], recruiterPlanById)[0]);
 });
 
 router.post("/", requireAuth, async (request, response) => {
@@ -297,6 +340,7 @@ router.post("/", requireAuth, async (request, response) => {
   const payload = {
     ...toDatabaseJob(request.body),
     recruiter_id: request.user.id,
+    recruiter_plan: plan,
     status: "published",
     published_at: new Date().toISOString(),
   };
@@ -311,13 +355,13 @@ router.post("/", requireAuth, async (request, response) => {
     return response.status(400).json({ error: error.message });
   }
 
-  return response.status(201).json(toClientJob(data));
+  return response.status(201).json(attachRecruiterPlanToJobs([toClientJob(data)], { [request.user.id]: plan })[0]);
 });
 
 router.put("/:id", requireAuth, async (request, response) => {
   const { data, error } = await supabaseAdmin
     .from("jobs")
-    .update(toDatabaseJob(request.body))
+    .update({ ...toDatabaseJob(request.body), recruiter_plan: getRecruiterPlan(request.user) })
     .eq("id", request.params.id)
     .eq("recruiter_id", request.user.id)
     .select()
@@ -327,7 +371,7 @@ router.put("/:id", requireAuth, async (request, response) => {
     return response.status(400).json({ error: error.message });
   }
 
-  return response.json(toClientJob(data));
+  return response.json(attachRecruiterPlanToJobs([toClientJob(data)], { [request.user.id]: getRecruiterPlan(request.user) })[0]);
 });
 
 router.delete("/:id", requireAuth, async (request, response) => {

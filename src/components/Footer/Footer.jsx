@@ -18,7 +18,7 @@ function Footer({ language = "pt" }) {
         <div className="site-footer__brand">
           <a className="site-footer__logo" href="#/" aria-label={t("header.initialPageLabel")}>
             <span className="site-footer__mark" aria-hidden="true">
-              <span></span>
+              <img src={`${process.env.PUBLIC_URL}/images/logo.png`} alt="" />
             </span>
             <span>
               <strong>ElMigrante</strong>
