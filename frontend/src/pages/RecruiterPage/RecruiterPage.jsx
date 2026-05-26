@@ -14,10 +14,11 @@ import {
   languageOptions,
 } from "../../data/jobOptions";
 import { createTranslator } from "../../i18n/translations";
-import { getRecruiterJobs } from "../../services/api";
+import { exportRecruiterJobsCsv, getRecruiterJobs } from "../../services/api";
 import "./RecruiterPage.css";
 
 const requiredFields = ["title", "company", "city", "country", "area", "contract", "contact", "description"];
+const CSV_EXPORT_PLANS = new Set(["pro", "business", "enterprise"]);
 const defaultRecruiterSummary = {
   plan: "free",
   jobLimit: 5,
@@ -53,6 +54,8 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [deletingJobId, setDeletingJobId] = useState("");
   const [jobPendingDelete, setJobPendingDelete] = useState(null);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [infoModal, setInfoModal] = useState(null);
   const cityOptions = getCityOptions(form.countryCode);
   const recommended = t("recruiter.recommended", []);
   const token = authSession?.session?.access_token;
@@ -66,6 +69,7 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
   const planBadgeClassName = `plan-badge plan-badge--${recruiterSummary.plan || "free"}`;
   const remainingJobs = recruiterSummary.jobLimit === null ? t("recruiter.unlimitedJobs") : Math.max(jobLimit - activeJobs, 0);
   const hasReachedLimit = recruiterSummary.jobLimit !== null && activeJobs >= jobLimit;
+  const canExportCsv = CSV_EXPORT_PLANS.has(recruiterSummary.plan);
   const totalViews = recruiterSummary.totals?.views || 0;
   const totalContactClicks = recruiterSummary.totals?.contactClicks || 0;
   const recentViews = recruiterSummary.totals?.recentViews || 0;
@@ -170,6 +174,46 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
   function closeDeleteModal() {
     if (deletingJobId) return;
     setJobPendingDelete(null);
+  }
+
+  function closeInfoModal() {
+    if (isExportingCsv) return;
+    setInfoModal(null);
+  }
+
+  async function handleExportCsv() {
+    if (!canExportCsv) {
+      return;
+    }
+
+    if (recruiterSummary.jobs.length === 0) {
+      setInfoModal({
+        title: t("recruiter.csvEmptyTitle"),
+        text: t("recruiter.csvEmptyText"),
+      });
+      return;
+    }
+
+    try {
+      setSubmitError("");
+      setIsExportingCsv(true);
+      const blob = await exportRecruiterJobsCsv(token);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "elmigrante-vagas-metricas.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      setInfoModal({
+        title: t("recruiter.csvErrorTitle"),
+        text: error.message,
+      });
+    } finally {
+      setIsExportingCsv(false);
+    }
   }
 
   async function handleDeletePublishedJob() {
@@ -397,6 +441,27 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                 </div>
               )}
             </section>
+            <section className="export-panel">
+              <div className="recruiter-panel__header">
+                <h2>{t("recruiter.csvTitle")}</h2>
+                <p>{canExportCsv ? t("recruiter.csvReadyText") : t("recruiter.csvLockedText")}</p>
+              </div>
+              <button
+                type="button"
+                className={canExportCsv ? "export-panel__button" : "export-panel__button export-panel__button--disabled"}
+                onClick={handleExportCsv}
+                disabled={!canExportCsv || isExportingCsv}
+              >
+                {isExportingCsv ? t("recruiter.csvExporting") : t("recruiter.csvButton")}
+              </button>
+              {!canExportCsv && (
+                <div className="job-form__tip">
+                  <strong>{t("recruiter.csvUnavailableTitle")}</strong>
+                  <span>{t("recruiter.csvUnavailableText")}</span>
+                  <a href="#/planos">{t("recruiter.viewPlans")}</a>
+                </div>
+              )}
+            </section>
           </aside>
         </section>
         {jobPendingDelete && (
@@ -433,6 +498,31 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                 </button>
                 <button type="button" className="recruiter-modal__button recruiter-modal__button--danger" onClick={handleDeletePublishedJob} disabled={Boolean(deletingJobId)}>
                   {deletingJobId ? t("recruiter.deletingJob") : t("recruiter.confirmDelete")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {infoModal && (
+          <div className="recruiter-modal-overlay">
+            <div className="recruiter-modal" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+              <button
+                type="button"
+                className="recruiter-modal__close"
+                onClick={closeInfoModal}
+                aria-label={t("jobs.closeModal")}
+                disabled={isExportingCsv}
+              >
+                x
+              </button>
+              <div className="recruiter-modal__header recruiter-modal__header--neutral">
+                <span>{t("recruiter.csvTitle")}</span>
+                <h2 id="info-modal-title">{infoModal.title}</h2>
+              </div>
+              <p className="recruiter-modal__text">{infoModal.text}</p>
+              <div className="recruiter-modal__actions">
+                <button type="button" className="recruiter-modal__button recruiter-modal__button--secondary" onClick={closeInfoModal} disabled={isExportingCsv}>
+                  {t("recruiter.closeInfo")}
                 </button>
               </div>
             </div>

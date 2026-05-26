@@ -9,6 +9,7 @@ const PLAN_LIMITS = {
   business: 50,
   enterprise: null,
 };
+const CSV_EXPORT_ENABLED_PLANS = new Set(["pro", "business", "enterprise"]);
 const TRACKABLE_EVENTS = new Set(["view", "contact_click"]);
 
 function hasPromotedPlacement(plan) {
@@ -181,6 +182,88 @@ function attachMetricsToJobs(jobs, metricsByJobId) {
   }));
 }
 
+function escapeCsvValue(value) {
+  const normalized = value === null || value === undefined ? "" : String(value);
+  const escaped = normalized.replace(/"/g, "\"\"");
+  return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function buildRecruiterExportCsv({ user, plan, totals, jobs }) {
+  const rows = [
+    ["recruiter_name", user?.user_metadata?.name || ""],
+    ["recruiter_email", user?.email || ""],
+    ["company_name", user?.user_metadata?.companyName || ""],
+    ["plan", plan],
+    ["active_jobs", jobs.length],
+    ["total_views", totals.views || 0],
+    ["total_contact_clicks", totals.contactClicks || 0],
+    ["recent_views_7d", totals.recentViews || 0],
+    ["recent_contact_clicks_7d", totals.recentContactClicks || 0],
+    [],
+    [
+      "job_id",
+      "title",
+      "company",
+      "status",
+      "published_at",
+      "city",
+      "country",
+      "area",
+      "contract",
+      "salary",
+      "contact_method",
+      "contact",
+      "is_urgent",
+      "has_accommodation",
+      "languages",
+      "experience",
+      "views",
+      "contact_clicks",
+      "recent_views_7d",
+      "recent_contact_clicks_7d",
+      "conversion_rate",
+      "last_accessed_at",
+      "description",
+      "requirements",
+      "benefits",
+    ],
+  ];
+
+  jobs.forEach((job) => {
+    const conversionRate = job.views > 0 ? `${Math.round((job.contactClicks / job.views) * 100)}%` : "0%";
+
+    rows.push([
+      job.id,
+      job.title,
+      job.company,
+      "published",
+      job.publishedAt || "",
+      job.city,
+      job.country,
+      job.area,
+      job.contract,
+      job.salary,
+      job.contactMethod,
+      job.contact,
+      job.isUrgent ? "yes" : "no",
+      job.hasAccommodation ? "yes" : "no",
+      job.languages,
+      job.experience,
+      job.views || 0,
+      job.contactClicks || 0,
+      job.recentViews || 0,
+      job.recentContactClicks || 0,
+      conversionRate,
+      job.lastAccessedAt || "",
+      job.description || "",
+      job.requirements || "",
+      job.benefits || "",
+    ]);
+  });
+
+  return rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+}
+
 router.get("/", async (_request, response) => {
   const { data, error } = await supabaseAdmin
     .from("jobs")
@@ -261,6 +344,63 @@ router.get("/mine", requireAuth, async (request, response) => {
     totals,
     jobs: jobsWithMetrics,
   });
+});
+
+router.get("/mine/export.csv", requireAuth, async (request, response) => {
+  const plan = getRecruiterPlan(request.user);
+
+  if (!CSV_EXPORT_ENABLED_PLANS.has(plan)) {
+    return response.status(403).json({ error: "Your current plan does not include CSV export." });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("jobs")
+    .select("*")
+    .eq("recruiter_id", request.user.id)
+    .neq("status", "archived")
+    .order("published_at", { ascending: false });
+
+  if (error) {
+    return response.status(500).json({ error: error.message });
+  }
+
+  const jobs = attachRecruiterPlanToJobs(data.map(toClientJob), { [request.user.id]: plan });
+
+  if (jobs.length === 0) {
+    return response.status(409).json({ error: "There are no jobs available to export." });
+  }
+
+  const jobIds = jobs.map((job) => job.id);
+  let metricsByJobId = {};
+
+  if (jobIds.length > 0) {
+    const { data: events, error: eventsError } = await supabaseAdmin
+      .from("job_events")
+      .select("job_id,event_type,occurred_at")
+      .in("job_id", jobIds);
+
+    if (eventsError && !isMissingEventsTableError(eventsError)) {
+      return response.status(500).json({ error: eventsError.message });
+    }
+
+    metricsByJobId = buildJobMetrics(events || []);
+  }
+
+  const jobsWithMetrics = attachMetricsToJobs(jobs, metricsByJobId);
+  const totals = jobsWithMetrics.reduce(
+    (summary, job) => ({
+      views: summary.views + job.views,
+      contactClicks: summary.contactClicks + job.contactClicks,
+      recentViews: summary.recentViews + job.recentViews,
+      recentContactClicks: summary.recentContactClicks + job.recentContactClicks,
+    }),
+    { views: 0, contactClicks: 0, recentViews: 0, recentContactClicks: 0 }
+  );
+  const csv = buildRecruiterExportCsv({ user: request.user, plan, totals, jobs: jobsWithMetrics });
+
+  response.setHeader("Content-Type", "text/csv; charset=utf-8");
+  response.setHeader("Content-Disposition", `attachment; filename="elmigrante-jobs-${request.user.id}.csv"`);
+  return response.status(200).send(`\uFEFF${csv}`);
 });
 
 router.post("/:id/events", async (request, response) => {

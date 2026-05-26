@@ -105,3 +105,25 @@ export function deleteJob(jobId, token) {
     },
   });
 }
+
+export async function exportRecruiterJobsCsv(token) {
+  const response = await fetch(`${API_URL}/jobs/mine/export.csv`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const contentType = response.headers.get("Content-Type") || "";
+
+  if (!response.ok) {
+    const payload = contentType.includes("application/json") ? await response.json() : null;
+
+    if (response.status === 401) {
+      unauthorizedHandler?.(payload);
+    }
+
+    throw new Error(payload?.error || "Request failed.");
+  }
+
+  return response.blob();
+}
