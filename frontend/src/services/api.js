@@ -1,5 +1,10 @@
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000";
 const VISITOR_ID_KEY = "elmigrante.visitorId";
+let unauthorizedHandler = null;
+
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler;
+}
 
 function createVisitorId() {
   if (window.crypto?.randomUUID) {
@@ -32,6 +37,10 @@ async function request(path, options = {}) {
 
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
+
+  if (response.status === 401) {
+    unauthorizedHandler?.(data);
+  }
 
   if (!response.ok) {
     throw new Error(data?.error || "Request failed.");

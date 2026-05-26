@@ -15,7 +15,7 @@ import AuthPage from "./pages/AuthPage/AuthPage";
 import JobsPage from "./pages/JobsPage/JobsPage";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import RecruiterPage from "./pages/RecruiterPage/RecruiterPage";
-import { createJob, deleteJob, getJobs } from "./services/api";
+import { createJob, deleteJob, getJobs, setUnauthorizedHandler } from "./services/api";
 
 const storageKey = "elmigrante.jobs";
 const languageStorageKey = "elmigrante.language";
@@ -101,13 +101,24 @@ function scrollToPageTop() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
+function isSessionExpired(authSession) {
+  const expiresAt = authSession?.session?.expires_at;
+
+  if (!expiresAt) {
+    return true;
+  }
+
+  return Date.now() >= expiresAt * 1000;
+}
+
 function App() {
   const [route, setRoute] = useState(getRouteFromHash);
   const [jobs, setJobs] = useState(loadJobs);
   const [language, setLanguage] = useState(() => localStorage.getItem(languageStorageKey) || "pt");
   const [authSession, setAuthSession] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem(authStorageKey));
+      const savedSession = JSON.parse(localStorage.getItem(authStorageKey));
+      return isSessionExpired(savedSession) ? null : savedSession;
     } catch (error) {
       return null;
     }
@@ -156,6 +167,24 @@ function App() {
       document.getElementById(route.anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   }, [route]);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setAuthSession((currentSession) => {
+        if (!currentSession) {
+          return null;
+        }
+
+        if (window.location.hash === "#/recrutador" || window.location.hash === "#/publicar") {
+          window.location.hash = "#/login";
+        }
+
+        return null;
+      });
+    });
+
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === route.id),
