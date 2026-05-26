@@ -12,12 +12,13 @@ import {
 } from "./data/jobOptions";
 import { getLanguageConfig } from "./i18n/translations";
 import AuthPage from "./pages/AuthPage/AuthPage";
+import CandidatePage from "./pages/CandidatePage/CandidatePage";
 import JobsPage from "./pages/JobsPage/JobsPage";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import RecruiterPage from "./pages/RecruiterPage/RecruiterPage";
-import { createJob, deleteJob, getJobs, setUnauthorizedHandler } from "./services/api";
+import { createJob, deleteJob, getCandidateDashboard, getJobs, setUnauthorizedHandler } from "./services/api";
 
-const storageKey = "elmigrante.jobs";
+const legacyJobsStorageKey = "elmigrante.jobs";
 const languageStorageKey = "elmigrante.language";
 const authStorageKey = "elmigrante.auth";
 
@@ -53,11 +54,23 @@ function getRouteFromHash() {
   }
 
   if (page === "login") {
-    return { name: "login" };
+    return { name: "login", audience: searchParams.get("audience") || "recruiter" };
   }
 
   if (page === "cadastro") {
-    return { name: "register" };
+    return { name: "register", audience: searchParams.get("audience") || "recruiter" };
+  }
+
+  if (page === "login-candidato") {
+    return { name: "login", audience: "candidate" };
+  }
+
+  if (page === "cadastro-candidato") {
+    return { name: "register", audience: "candidate" };
+  }
+
+  if (page === "candidato") {
+    return { name: "candidate" };
   }
 
   if (page === "vaga" && id) {
@@ -67,34 +80,24 @@ function getRouteFromHash() {
   return { name: "home" };
 }
 
-function loadJobs() {
-  try {
-    const savedJobs = JSON.parse(localStorage.getItem(storageKey));
-
-    if (Array.isArray(savedJobs)) {
-      return savedJobs.map((job) => ({
-        ...job,
-        country: job.country || job.state || "",
-        countryCode: job.countryCode || findCountryValue(job.country || job.state || ""),
-        cityCode: job.cityCode || findCityValue(job.countryCode || findCountryValue(job.country || job.state || ""), job.city),
-        latitude: job.latitude ?? null,
-        longitude: job.longitude ?? null,
-        areaCode: job.areaCode || findOptionValue(areaOptions, job.area),
-        contractCode: job.contractCode || findOptionValue(contractOptions, job.contract),
-        experienceCode: job.experienceCode || findOptionValue(experienceOptions, job.experience),
-        languageItems: Array.isArray(job.languageItems) ? job.languageItems : [],
-        contactMethod: job.contactMethod || "email",
-        recruiterPlan: job.recruiterPlan || "free",
-        isPromoted: hasPromotedPlacement(job.recruiterPlan || "free"),
-        isUrgent: Boolean(job.isUrgent),
-        hasAccommodation: Boolean(job.hasAccommodation),
-      }));
-    }
-  } catch (error) {
-    return initialJobs;
-  }
-
-  return initialJobs;
+function loadFallbackJobs() {
+  return initialJobs.map((job) => ({
+    ...job,
+    country: job.country || job.state || "",
+    countryCode: job.countryCode || findCountryValue(job.country || job.state || ""),
+    cityCode: job.cityCode || findCityValue(job.countryCode || findCountryValue(job.country || job.state || ""), job.city),
+    latitude: job.latitude ?? null,
+    longitude: job.longitude ?? null,
+    areaCode: job.areaCode || findOptionValue(areaOptions, job.area),
+    contractCode: job.contractCode || findOptionValue(contractOptions, job.contract),
+    experienceCode: job.experienceCode || findOptionValue(experienceOptions, job.experience),
+    languageItems: Array.isArray(job.languageItems) ? job.languageItems : [],
+    contactMethod: job.contactMethod || "email",
+    recruiterPlan: job.recruiterPlan || "free",
+    isPromoted: hasPromotedPlacement(job.recruiterPlan || "free"),
+    isUrgent: Boolean(job.isUrgent),
+    hasAccommodation: Boolean(job.hasAccommodation),
+  }));
 }
 
 function scrollToPageTop() {
@@ -113,7 +116,7 @@ function isSessionExpired(authSession) {
 
 function App() {
   const [route, setRoute] = useState(getRouteFromHash);
-  const [jobs, setJobs] = useState(loadJobs);
+  const [jobs, setJobs] = useState(loadFallbackJobs);
   const [language, setLanguage] = useState(() => localStorage.getItem(languageStorageKey) || "pt");
   const [authSession, setAuthSession] = useState(() => {
     try {
@@ -123,6 +126,7 @@ function App() {
       return null;
     }
   });
+  const [candidateDashboard, setCandidateDashboard] = useState(null);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -135,17 +139,41 @@ function App() {
   }, []);
 
   useEffect(() => {
+    localStorage.removeItem(legacyJobsStorageKey);
+  }, []);
+
+  useEffect(() => {
     async function loadRemoteJobs() {
       try {
         const remoteJobs = await getJobs();
-        setJobs(remoteJobs.length > 0 ? remoteJobs : loadJobs());
+        setJobs(remoteJobs.length > 0 ? remoteJobs : loadFallbackJobs());
       } catch (error) {
-        setJobs(loadJobs());
+        setJobs(loadFallbackJobs());
       }
     }
 
     loadRemoteJobs();
   }, []);
+
+  useEffect(() => {
+    async function loadCandidateData() {
+      const role = authSession?.user?.user_metadata?.role || authSession?.user?.app_metadata?.role;
+      const token = authSession?.session?.access_token;
+
+      if (role !== "candidate" || !token) {
+        setCandidateDashboard(null);
+        return;
+      }
+
+      try {
+        setCandidateDashboard(await getCandidateDashboard(token));
+      } catch (error) {
+        setCandidateDashboard(null);
+      }
+    }
+
+    loadCandidateData();
+  }, [authSession]);
 
   useEffect(() => {
     localStorage.setItem(languageStorageKey, language);
@@ -216,39 +244,53 @@ function App() {
     setJobs((currentJobs) => currentJobs.filter((currentJob) => currentJob.id !== jobId));
   }
 
+  function handleCandidateDashboardUpdate(nextDashboard) {
+    setCandidateDashboard(nextDashboard);
+  }
+
   function handleLogout() {
     setAuthSession(null);
-    if (route.name === "recruiter" || route.name === "publishJob") {
+    setCandidateDashboard(null);
+    if (route.name === "recruiter" || route.name === "publishJob" || route.name === "candidate") {
       window.location.hash = "#/login";
     }
   }
 
+  const authRole = authSession?.user?.user_metadata?.role || authSession?.user?.app_metadata?.role || null;
+
   return (
     <>
-      <Header language={language} onLanguageChange={setLanguage} authSession={authSession} onLogout={handleLogout} />
+      <Header language={language} onLanguageChange={setLanguage} authSession={authSession} authRole={authRole} onLogout={handleLogout} />
       {route.name === "home" && <LandingPage jobs={jobs} language={language} />}
-      {route.name === "jobs" && <JobsPage jobs={jobs} initialSearch={route.search} language={language} />}
-      {route.name === "login" && <AuthPage language={language} mode="login" onAuth={setAuthSession} />}
-      {route.name === "register" && <AuthPage language={language} mode="register" onAuth={setAuthSession} />}
+      {route.name === "jobs" && <JobsPage jobs={jobs} initialSearch={route.search} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />}
+      {route.name === "login" && <AuthPage language={language} mode="login" audience={route.audience} onAuth={setAuthSession} />}
+      {route.name === "register" && <AuthPage language={language} mode="register" audience={route.audience} onAuth={setAuthSession} />}
       {route.name === "jobDetail" && (
         selectedJob ? (
-          <JobsPage jobs={jobs} selectedJob={selectedJob} language={language} />
+          <JobsPage jobs={jobs} selectedJob={selectedJob} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />
         ) : (
-          <JobsPage jobs={jobs} initialSearch="" language={language} />
+          <JobsPage jobs={jobs} initialSearch="" language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />
         )
       )}
       {route.name === "recruiter" && (
-        authSession?.session?.access_token ? (
+        authSession?.session?.access_token && authRole === "recruiter" ? (
           <RecruiterPage authSession={authSession} mode="dashboard" onCreateJob={handleCreateJob} onDeleteJob={handleDeleteJob} language={language} />
         ) : (
-          <AuthPage language={language} mode="login" onAuth={setAuthSession} />
+          <AuthPage language={language} mode="login" audience="recruiter" onAuth={setAuthSession} />
         )
       )}
       {route.name === "publishJob" && (
-        authSession?.session?.access_token ? (
+        authSession?.session?.access_token && authRole === "recruiter" ? (
           <RecruiterPage authSession={authSession} mode="publish" onCreateJob={handleCreateJob} onDeleteJob={handleDeleteJob} language={language} />
         ) : (
-          <AuthPage language={language} mode="login" onAuth={setAuthSession} />
+          <AuthPage language={language} mode="login" audience="recruiter" onAuth={setAuthSession} />
+        )
+      )}
+      {route.name === "candidate" && (
+        authSession?.session?.access_token && authRole === "candidate" ? (
+          <CandidatePage dashboard={candidateDashboard} language={language} />
+        ) : (
+          <AuthPage language={language} mode="login" audience="candidate" onAuth={setAuthSession} />
         )
       )}
       <Footer language={language} />

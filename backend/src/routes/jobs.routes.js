@@ -11,6 +11,21 @@ const PLAN_LIMITS = {
 };
 const CSV_EXPORT_ENABLED_PLANS = new Set(["pro", "business", "enterprise"]);
 const TRACKABLE_EVENTS = new Set(["view", "contact_click"]);
+const JOB_FIELD_LIMITS = {
+  title: 120,
+  company: 120,
+  city: 80,
+  country: 80,
+  area: 80,
+  contract: 80,
+  salary: 40,
+  contact: 160,
+  languages: 300,
+  experience: 80,
+  description: 2500,
+  requirements: 1800,
+  benefits: 1800,
+};
 
 function hasPromotedPlacement(plan) {
   return plan === "business" || plan === "enterprise";
@@ -84,6 +99,17 @@ function toDatabaseJob(body) {
     is_urgent: Boolean(body.isUrgent),
     has_accommodation: Boolean(body.hasAccommodation),
   };
+}
+
+function validateJobFieldLengths(body) {
+  const invalidField = Object.entries(JOB_FIELD_LIMITS).find(([field, limit]) => String(body[field] || "").length > limit);
+
+  if (!invalidField) {
+    return null;
+  }
+
+  const [field, limit] = invalidField;
+  return `Field "${field}" exceeds the maximum length of ${limit} characters.`;
 }
 
 function getRecruiterPlan(user) {
@@ -182,6 +208,36 @@ function attachMetricsToJobs(jobs, metricsByJobId) {
   }));
 }
 
+function buildSavedJobMetrics(savedItems = []) {
+  return savedItems.reduce((metrics, item) => {
+    const jobMetrics = metrics[item.job_id] || {
+      favoriteCount: 0,
+      applyLaterCount: 0,
+    };
+
+    if (item.list_type === "favorite") {
+      jobMetrics.favoriteCount += 1;
+    }
+
+    if (item.list_type === "apply_later") {
+      jobMetrics.applyLaterCount += 1;
+    }
+
+    metrics[item.job_id] = jobMetrics;
+    return metrics;
+  }, {});
+}
+
+function attachSavedJobMetrics(jobs, savedMetricsByJobId) {
+  return jobs.map((job) => ({
+    ...job,
+    ...(savedMetricsByJobId[job.id] || {
+      favoriteCount: 0,
+      applyLaterCount: 0,
+    }),
+  }));
+}
+
 function escapeCsvValue(value) {
   const normalized = value === null || value === undefined ? "" : String(value);
   const escaped = normalized.replace(/"/g, "\"\"");
@@ -199,6 +255,8 @@ function buildRecruiterExportCsv({ user, plan, totals, jobs }) {
     ["total_contact_clicks", totals.contactClicks || 0],
     ["recent_views_7d", totals.recentViews || 0],
     ["recent_contact_clicks_7d", totals.recentContactClicks || 0],
+    ["total_favorites", totals.favorites || 0],
+    ["total_apply_later", totals.applyLater || 0],
     [],
     [
       "job_id",
@@ -221,6 +279,8 @@ function buildRecruiterExportCsv({ user, plan, totals, jobs }) {
       "contact_clicks",
       "recent_views_7d",
       "recent_contact_clicks_7d",
+      "favorite_count",
+      "apply_later_count",
       "conversion_rate",
       "last_accessed_at",
       "description",
@@ -253,6 +313,8 @@ function buildRecruiterExportCsv({ user, plan, totals, jobs }) {
       job.contactClicks || 0,
       job.recentViews || 0,
       job.recentContactClicks || 0,
+      job.favoriteCount || 0,
+      job.applyLaterCount || 0,
       conversionRate,
       job.lastAccessedAt || "",
       job.description || "",
@@ -279,6 +341,7 @@ router.get("/", async (_request, response) => {
   const recruiterPlanById = await buildRecruiterPlanMap(jobs.map((job) => job.recruiterId));
   const jobIds = jobs.map((job) => job.id);
   let metricsByJobId = {};
+  let savedMetricsByJobId = {};
 
   if (jobIds.length > 0) {
     const { data: events, error: eventsError } = await supabaseAdmin
@@ -291,9 +354,25 @@ router.get("/", async (_request, response) => {
     }
 
     metricsByJobId = buildJobMetrics(events || []);
+
+    const { data: savedItems, error: savedItemsError } = await supabaseAdmin
+      .from("user_job_lists")
+      .select("job_id,list_type")
+      .in("job_id", jobIds);
+
+    if (savedItemsError) {
+      return response.status(500).json({ error: savedItemsError.message });
+    }
+
+    savedMetricsByJobId = buildSavedJobMetrics(savedItems || []);
   }
 
-  return response.json(attachRecruiterPlanToJobs(attachMetricsToJobs(jobs, metricsByJobId), recruiterPlanById));
+  return response.json(
+    attachRecruiterPlanToJobs(
+      attachSavedJobMetrics(attachMetricsToJobs(jobs, metricsByJobId), savedMetricsByJobId),
+      recruiterPlanById
+    )
+  );
 });
 
 router.get("/mine", requireAuth, async (request, response) => {
@@ -312,6 +391,7 @@ router.get("/mine", requireAuth, async (request, response) => {
   const jobs = attachRecruiterPlanToJobs(data.map(toClientJob), { [request.user.id]: plan });
   const jobIds = jobs.map((job) => job.id);
   let metricsByJobId = {};
+  let savedMetricsByJobId = {};
 
   if (jobIds.length > 0) {
     const { data: events, error: eventsError } = await supabaseAdmin
@@ -324,17 +404,30 @@ router.get("/mine", requireAuth, async (request, response) => {
     }
 
     metricsByJobId = buildJobMetrics(events || []);
+
+    const { data: savedItems, error: savedItemsError } = await supabaseAdmin
+      .from("user_job_lists")
+      .select("job_id,list_type")
+      .in("job_id", jobIds);
+
+    if (savedItemsError) {
+      return response.status(500).json({ error: savedItemsError.message });
+    }
+
+    savedMetricsByJobId = buildSavedJobMetrics(savedItems || []);
   }
 
-  const jobsWithMetrics = attachMetricsToJobs(jobs, metricsByJobId);
+  const jobsWithMetrics = attachSavedJobMetrics(attachMetricsToJobs(jobs, metricsByJobId), savedMetricsByJobId);
   const totals = jobsWithMetrics.reduce(
     (summary, job) => ({
       views: summary.views + job.views,
       contactClicks: summary.contactClicks + job.contactClicks,
       recentViews: summary.recentViews + job.recentViews,
       recentContactClicks: summary.recentContactClicks + job.recentContactClicks,
+      favorites: summary.favorites + (job.favoriteCount || 0),
+      applyLater: summary.applyLater + (job.applyLaterCount || 0),
     }),
-    { views: 0, contactClicks: 0, recentViews: 0, recentContactClicks: 0 }
+    { views: 0, contactClicks: 0, recentViews: 0, recentContactClicks: 0, favorites: 0, applyLater: 0 }
   );
   const jobLimit = Object.prototype.hasOwnProperty.call(PLAN_LIMITS, plan) ? PLAN_LIMITS[plan] : PLAN_LIMITS.free;
 
@@ -372,6 +465,7 @@ router.get("/mine/export.csv", requireAuth, async (request, response) => {
 
   const jobIds = jobs.map((job) => job.id);
   let metricsByJobId = {};
+  let savedMetricsByJobId = {};
 
   if (jobIds.length > 0) {
     const { data: events, error: eventsError } = await supabaseAdmin
@@ -384,17 +478,30 @@ router.get("/mine/export.csv", requireAuth, async (request, response) => {
     }
 
     metricsByJobId = buildJobMetrics(events || []);
+
+    const { data: savedItems, error: savedItemsError } = await supabaseAdmin
+      .from("user_job_lists")
+      .select("job_id,list_type")
+      .in("job_id", jobIds);
+
+    if (savedItemsError) {
+      return response.status(500).json({ error: savedItemsError.message });
+    }
+
+    savedMetricsByJobId = buildSavedJobMetrics(savedItems || []);
   }
 
-  const jobsWithMetrics = attachMetricsToJobs(jobs, metricsByJobId);
+  const jobsWithMetrics = attachSavedJobMetrics(attachMetricsToJobs(jobs, metricsByJobId), savedMetricsByJobId);
   const totals = jobsWithMetrics.reduce(
     (summary, job) => ({
       views: summary.views + job.views,
       contactClicks: summary.contactClicks + job.contactClicks,
       recentViews: summary.recentViews + job.recentViews,
       recentContactClicks: summary.recentContactClicks + job.recentContactClicks,
+      favorites: summary.favorites + (job.favoriteCount || 0),
+      applyLater: summary.applyLater + (job.applyLaterCount || 0),
     }),
-    { views: 0, contactClicks: 0, recentViews: 0, recentContactClicks: 0 }
+    { views: 0, contactClicks: 0, recentViews: 0, recentContactClicks: 0, favorites: 0, applyLater: 0 }
   );
   const csv = buildRecruiterExportCsv({ user: request.user, plan, totals, jobs: jobsWithMetrics });
 
@@ -455,10 +562,30 @@ router.get("/:id", async (request, response) => {
   }
 
   const recruiterPlanById = await buildRecruiterPlanMap([data.recruiter_id]);
-  return response.json(attachRecruiterPlanToJobs([toClientJob(data)], recruiterPlanById)[0]);
+  const { data: savedItems, error: savedItemsError } = await supabaseAdmin
+    .from("user_job_lists")
+    .select("job_id,list_type")
+    .eq("job_id", data.id);
+
+  if (savedItemsError) {
+    return response.status(500).json({ error: savedItemsError.message });
+  }
+
+  return response.json(
+    attachRecruiterPlanToJobs(
+      attachSavedJobMetrics([toClientJob(data)], buildSavedJobMetrics(savedItems || [])),
+      recruiterPlanById
+    )[0]
+  );
 });
 
 router.post("/", requireAuth, async (request, response) => {
+  const lengthError = validateJobFieldLengths(request.body);
+
+  if (lengthError) {
+    return response.status(400).json({ error: lengthError });
+  }
+
   const plan = getRecruiterPlan(request.user);
 
   const jobLimit = Object.prototype.hasOwnProperty.call(PLAN_LIMITS, plan) ? PLAN_LIMITS[plan] : PLAN_LIMITS.free;
@@ -499,6 +626,12 @@ router.post("/", requireAuth, async (request, response) => {
 });
 
 router.put("/:id", requireAuth, async (request, response) => {
+  const lengthError = validateJobFieldLengths(request.body);
+
+  if (lengthError) {
+    return response.status(400).json({ error: lengthError });
+  }
+
   const { data, error } = await supabaseAdmin
     .from("jobs")
     .update({ ...toDatabaseJob(request.body), recruiter_plan: getRecruiterPlan(request.user) })

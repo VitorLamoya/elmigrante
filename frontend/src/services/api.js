@@ -56,10 +56,17 @@ export function registerRecruiter({ name, email, password, companyName, companyS
   });
 }
 
-export function loginRecruiter({ email, password }) {
+export function registerCandidate({ name, email, password }) {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ name, email, password, role: "candidate" }),
+  });
+}
+
+export function loginRecruiter({ email, password, audience }) {
   return request("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, audience }),
   });
 }
 
@@ -99,6 +106,41 @@ export function createJob(job, token) {
 
 export function deleteJob(jobId, token) {
   return request(`/jobs/${jobId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function getCandidateDashboard(token) {
+  return request("/candidate/dashboard", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function getSavedJobsStatus(jobIds, token) {
+  return request(`/candidate/saved-jobs/status?jobIds=${jobIds.join(",")}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function saveJobForCandidate(jobId, listType, token) {
+  return request(`/candidate/saved-jobs/${jobId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ listType }),
+  });
+}
+
+export function removeSavedJobForCandidate(jobId, listType, token) {
+  return request(`/candidate/saved-jobs/${jobId}?listType=${listType}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

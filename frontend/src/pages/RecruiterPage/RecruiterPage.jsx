@@ -19,6 +19,21 @@ import "./RecruiterPage.css";
 
 const requiredFields = ["title", "company", "city", "country", "area", "contract", "contact", "description"];
 const CSV_EXPORT_PLANS = new Set(["pro", "business", "enterprise"]);
+const JOB_FIELD_LIMITS = {
+  title: 120,
+  company: 120,
+  city: 80,
+  country: 80,
+  area: 80,
+  contract: 80,
+  salary: 40,
+  contact: 160,
+  languages: 300,
+  experience: 80,
+  description: 2500,
+  requirements: 1800,
+  benefits: 1800,
+};
 const defaultRecruiterSummary = {
   plan: "free",
   jobLimit: 5,
@@ -32,6 +47,11 @@ function hasText(value) {
 
 function getFilledLength(value) {
   return value.trim().length;
+}
+
+function clampValue(name, value) {
+  const limit = JOB_FIELD_LIMITS[name];
+  return typeof limit === "number" ? value.slice(0, limit) : value;
 }
 
 function formatMoney(value) {
@@ -74,6 +94,8 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
   const totalContactClicks = recruiterSummary.totals?.contactClicks || 0;
   const recentViews = recruiterSummary.totals?.recentViews || 0;
   const recentContactClicks = recruiterSummary.totals?.recentContactClicks || 0;
+  const totalFavorites = recruiterSummary.totals?.favorites || 0;
+  const totalApplyLater = recruiterSummary.totals?.applyLater || 0;
   const conversionRate = totalViews > 0 ? `${Math.round((totalContactClicks / totalViews) * 100)}%` : "0%";
   const sortedDashboardJobs = [...recruiterSummary.jobs].sort((firstJob, secondJob) => (secondJob.views || 0) - (firstJob.views || 0));
   const selectedDashboardJob = recruiterSummary.jobs.find((job) => job.id === selectedDashboardJobId) || sortedDashboardJobs[0] || null;
@@ -126,7 +148,11 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
 
   function updateField(event) {
     const { name, value } = event.target;
-    const nextValue = name === "isUrgent" || name === "hasAccommodation" ? value === "yes" : name === "salary" ? formatMoney(value) : value;
+    const nextValue = name === "isUrgent" || name === "hasAccommodation"
+      ? value === "yes"
+      : name === "salary"
+        ? clampValue(name, formatMoney(value))
+        : clampValue(name, value);
 
     setForm((currentForm) => ({
       ...currentForm,
@@ -150,7 +176,10 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
     setForm((currentForm) => ({
       ...currentForm,
       languageItems: languages,
-      languages: languages.map((item) => `${getOptionLabel(languageOptions, item.language, language)} ${getOptionLabel(languageLevelOptions, item.level, language).toLowerCase()}`).join(", "),
+      languages: clampValue(
+        "languages",
+        languages.map((item) => `${getOptionLabel(languageOptions, item.language, language)} ${getOptionLabel(languageLevelOptions, item.level, language).toLowerCase()}`).join(", ")
+      ),
     }));
   }
 
@@ -340,7 +369,23 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                 <strong>{conversionRate}</strong>
                 <p>{t("recruiter.contactRateHint")}</p>
               </article>
-            </section>
+              <article>
+                <div className="metric-card__label">
+                  <span>{t("recruiter.favorites", "Favoritos")}</span>
+                  <small>{t("recruiter.candidateSignals", "Sinais")}</small>
+                </div>
+                <strong>{totalFavorites}</strong>
+                <p>{t("recruiter.favoriteHint", "Quantidade de vezes que candidatos marcaram a vaga como favorita.")}</p>
+              </article>
+              <article>
+                <div className="metric-card__label">
+                  <span>{t("recruiter.applyLater", "Aplicar depois")}</span>
+                  <small>{t("recruiter.candidateSignals", "Sinais")}</small>
+                </div>
+                <strong>{totalApplyLater}</strong>
+                <p>{t("recruiter.applyLaterHint", "Quantidade de vezes que candidatos guardaram a vaga para aplicar depois.")}</p>
+              </article>
+              </section>
             <section className="admin-jobs">
               <div className="admin-section-header">
                 <div>
@@ -353,11 +398,12 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
               <div className="admin-jobs__table">
                 {recruiterSummary.jobs.length > 0 && (
                   <div className="admin-job-row admin-job-row--head" aria-hidden="true">
-                    <span>{t("recruiter.jobColumn")}</span>
-                    <span>{t("recruiter.views")}</span>
-                    <span>{t("recruiter.applications")}</span>
-                    <span>{t("recruiter.conversion")}</span>
-                    <span>{t("recruiter.status")}</span>
+                    <span className="admin-job-row__cell">{t("recruiter.jobColumn")}</span>
+                    <span className="admin-job-row__cell">{t("recruiter.views")}</span>
+                    <span className="admin-job-row__cell">{t("recruiter.applications")}</span>
+                    <span className="admin-job-row__cell">{t("recruiter.conversion")}</span>
+                    <span className="admin-job-row__cell">{t("recruiter.favorites", "Favoritos")}</span>
+                    <span className="admin-job-row__cell">{t("recruiter.status")}</span>
                   </div>
                 )}
                 {!isLoadingJobs && recruiterSummary.jobs.length === 0 && <p>{t("recruiter.noJobs")}</p>}
@@ -368,14 +414,15 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                     key={job.id}
                     onClick={() => setSelectedDashboardJobId(job.id)}
                   >
-                    <span>
+                    <span className="admin-job-row__cell admin-job-row__job">
                       <strong>{job.title}</strong>
                       <small>{job.city}, {job.country}</small>
                     </span>
-                    <span>{job.views || 0}</span>
-                    <span>{job.contactClicks || 0}</span>
-                    <span>{job.views > 0 ? `${Math.round(((job.contactClicks || 0) / job.views) * 100)}%` : "0%"}</span>
-                    <span><small className="status-pill">{t("recruiter.published")}</small></span>
+                    <span className="admin-job-row__cell" data-label={t("recruiter.views")}>{job.views || 0}</span>
+                    <span className="admin-job-row__cell" data-label={t("recruiter.applications")}>{job.contactClicks || 0}</span>
+                    <span className="admin-job-row__cell" data-label={t("recruiter.conversion")}>{job.views > 0 ? `${Math.round(((job.contactClicks || 0) / job.views) * 100)}%` : "0%"}</span>
+                    <span className="admin-job-row__cell" data-label={t("recruiter.favorites", "Favoritos")}>{job.favoriteCount || 0}</span>
+                    <span className="admin-job-row__cell" data-label={t("recruiter.status")}><small className="status-pill">{t("recruiter.published")}</small></span>
                   </button>
                 ))}
               </div>
@@ -401,6 +448,14 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                     <div>
                       <span>{t("recruiter.conversion")}</span>
                       <strong>{selectedJobConversionRate}</strong>
+                    </div>
+                    <div>
+                      <span>{t("recruiter.favorites", "Favoritos")}</span>
+                      <strong>{selectedDashboardJob.favoriteCount || 0}</strong>
+                    </div>
+                    <div>
+                      <span>{t("recruiter.applyLater", "Aplicar depois")}</span>
+                      <strong>{selectedDashboardJob.applyLaterCount || 0}</strong>
                     </div>
                   </div>
                   <dl className="job-insight-panel__meta">
@@ -567,13 +622,13 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
             <span>{t("recruiter.sectionDetails")}</span>
           </div>
           <div className="job-form__grid">
-            <label>{t("recruiter.titleField")}<input name="title" value={form.title} onChange={updateField} placeholder={t("recruiter.titlePlaceholder")} /></label>
-            <label>{t("recruiter.company")}<input name="company" value={form.company} onChange={updateField} readOnly={Boolean(recruiterCompany)} placeholder={t("recruiter.companyPlaceholder")} /></label>
+            <label>{t("recruiter.titleField")}<input name="title" value={form.title} onChange={updateField} placeholder={t("recruiter.titlePlaceholder")} maxLength={JOB_FIELD_LIMITS.title} /></label>
+            <label>{t("recruiter.company")}<input name="company" value={form.company} onChange={updateField} readOnly={Boolean(recruiterCompany)} placeholder={t("recruiter.companyPlaceholder")} maxLength={JOB_FIELD_LIMITS.company} /></label>
             <label>{t("recruiter.country")}<select name="countryCode" value={form.countryCode} onChange={updateField} required><option value="" disabled>{t("recruiter.countryPlaceholder")}</option>{countryOptions.map((item) => <option value={item.value} key={item.value}>{item.labels[language]}</option>)}</select></label>
             <label>{t("recruiter.city")}<select name="cityCode" value={form.cityCode} onChange={updateField} required disabled={!form.countryCode}><option value="" disabled>{t("recruiter.cityPlaceholder")}</option>{cityOptions.map((item) => <option value={item.value} key={item.value}>{item.labels[language]}</option>)}</select></label>
             <label>{t("recruiter.area")}<select name="areaCode" value={form.areaCode} onChange={updateField} required><option value="" disabled>{t("recruiter.areaPlaceholder")}</option>{areaOptions.map((item) => <option value={item.value} key={item.value}>{item.labels[language]}</option>)}</select></label>
             <label>{t("recruiter.contract")}<select name="contractCode" value={form.contractCode} onChange={updateField} required><option value="" disabled>{t("recruiter.contractPlaceholder")}</option>{contractOptions.map((item) => <option value={item.value} key={item.value}>{item.labels[language]}</option>)}</select></label>
-            <label>{t("recruiter.salary")}<input name="salary" inputMode="numeric" value={form.salary} onChange={updateField} placeholder={t("recruiter.salaryPlaceholder")} /></label>
+            <label>{t("recruiter.salary")}<input name="salary" inputMode="numeric" value={form.salary} onChange={updateField} placeholder={t("recruiter.salaryPlaceholder")} maxLength={JOB_FIELD_LIMITS.salary} /></label>
             <label>
               {t("recruiter.urgentHiring")}
               <select name="isUrgent" value={form.isUrgent ? "yes" : "no"} onChange={updateField}>
@@ -603,6 +658,7 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                 value={form.contact}
                 onChange={updateField}
                 placeholder={form.contactMethod === "email" ? t("recruiter.contactEmailPlaceholder") : t("recruiter.contactPhonePlaceholder")}
+                maxLength={JOB_FIELD_LIMITS.contact}
               />
             </label>
             <label>{t("recruiter.experience")}<select name="experienceCode" value={form.experienceCode} onChange={updateField}><option value="" disabled>{t("recruiter.experiencePlaceholder")}</option>{experienceOptions.map((item) => <option value={item.value} key={item.value}>{item.labels[language]}</option>)}</select></label>
@@ -628,8 +684,8 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                 <strong>{t("recruiter.description")}</strong>
                 <small>{t("recruiter.descriptionHelp")}</small>
               </span>
-              <textarea name="description" value={form.description} onChange={updateField} rows="6" placeholder={t("recruiter.descriptionPlaceholder")} />
-              <em>{getFilledLength(form.description)} {t("recruiter.charactersCount")}</em>
+              <textarea name="description" value={form.description} onChange={updateField} rows="6" placeholder={t("recruiter.descriptionPlaceholder")} maxLength={JOB_FIELD_LIMITS.description} />
+              <em>{getFilledLength(form.description)}/{JOB_FIELD_LIMITS.description} {t("recruiter.charactersCount")}</em>
             </label>
             <div className="job-form__text-columns">
               <label className="job-form__textarea-card">
@@ -638,8 +694,8 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                   <small className="job-form__optional-tag">{t("recruiter.optionalTag")}</small>
                 </span>
                 <span className="job-form__textarea-note">{t("recruiter.requirementsHelp")}</span>
-                <textarea name="requirements" value={form.requirements} onChange={updateField} rows="5" placeholder={t("recruiter.requirementsPlaceholder")} />
-                <em>{getFilledLength(form.requirements)} {t("recruiter.charactersCount")}</em>
+                <textarea name="requirements" value={form.requirements} onChange={updateField} rows="5" placeholder={t("recruiter.requirementsPlaceholder")} maxLength={JOB_FIELD_LIMITS.requirements} />
+                <em>{getFilledLength(form.requirements)}/{JOB_FIELD_LIMITS.requirements} {t("recruiter.charactersCount")}</em>
               </label>
               <label className="job-form__textarea-card">
                 <span className="job-form__textarea-head">
@@ -647,8 +703,8 @@ function RecruiterPage({ authSession, mode = "dashboard", onCreateJob, onDeleteJ
                   <small className="job-form__optional-tag">{t("recruiter.optionalTag")}</small>
                 </span>
                 <span className="job-form__textarea-note">{t("recruiter.benefitsHelp")}</span>
-                <textarea name="benefits" value={form.benefits} onChange={updateField} rows="5" placeholder={t("recruiter.benefitsPlaceholder")} />
-                <em>{getFilledLength(form.benefits)} {t("recruiter.charactersCount")}</em>
+                <textarea name="benefits" value={form.benefits} onChange={updateField} rows="5" placeholder={t("recruiter.benefitsPlaceholder")} maxLength={JOB_FIELD_LIMITS.benefits} />
+                <em>{getFilledLength(form.benefits)}/{JOB_FIELD_LIMITS.benefits} {t("recruiter.charactersCount")}</em>
               </label>
             </div>
           </div>

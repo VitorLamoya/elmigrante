@@ -17,3 +17,17 @@ export async function requireAuth(request, response, next) {
   request.user = data.user;
   return next();
 }
+
+export function requireRole(allowedRoles) {
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+
+  return function roleMiddleware(request, response, next) {
+    const userRole = request.user?.user_metadata?.role || request.user?.app_metadata?.role || "candidate";
+
+    if (!roles.includes(userRole)) {
+      return response.status(403).json({ error: "You do not have access to this resource." });
+    }
+
+    return next();
+  };
+}

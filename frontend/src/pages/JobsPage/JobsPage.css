@@ -606,6 +606,13 @@
   margin-top: 2px;
 }
 
+.job-card__actions,
+.job-detail__save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .job-card__meta {
   display: flex;
   flex-wrap: wrap;
@@ -654,6 +661,56 @@
   border: 0;
   cursor: pointer;
   font-family: inherit;
+}
+
+.job-card__actions button,
+.job-detail__save-actions button {
+  min-height: 38px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  color: #374151;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  padding: 0 12px;
+}
+
+.job-save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-save-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.job-save-button--favorite {
+  color: #374151;
+}
+
+.job-save-button--favorite.is-active {
+  border-color: rgba(190, 24, 93, 0.22);
+  color: #be185d;
+  background: #fff1f6;
+}
+
+.job-card__actions button:hover,
+.job-card__actions button:focus-visible,
+.job-detail__save-actions button:hover,
+.job-detail__save-actions button:focus-visible {
+  border-color: #1f6b8f;
+  color: #1f6b8f;
+  outline: none;
+}
+
+.job-save-button--favorite.is-active:hover,
+.job-save-button--favorite.is-active:focus-visible {
+  border-color: rgba(190, 24, 93, 0.32);
+  color: #9d174d;
 }
 
 .job-card a:hover,

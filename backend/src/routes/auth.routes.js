@@ -6,8 +6,12 @@ const router = Router();
 router.post("/register", async (request, response) => {
   const { email, password, role = "candidate", name = "", companyName = "", companySize = "" } = request.body;
 
-  if (!email || !password || !name || !companyName || !companySize) {
-    return response.status(400).json({ error: "Name, company, company size, email and password are required." });
+  if (!email || !password || !name) {
+    return response.status(400).json({ error: "Name, email and password are required." });
+  }
+
+  if (role === "recruiter" && (!companyName || !companySize)) {
+    return response.status(400).json({ error: "Company name and company size are required for recruiter accounts." });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -30,7 +34,13 @@ router.post("/register", async (request, response) => {
     email: normalizedEmail,
     password,
     options: {
-      data: { role, name, companyName, companySize, plan: "free" },
+      data: {
+        role,
+        name,
+        companyName: role === "recruiter" ? companyName : "",
+        companySize: role === "recruiter" ? companySize : "",
+        plan: role === "recruiter" ? "free" : "",
+      },
     },
   });
 
@@ -46,16 +56,31 @@ router.post("/register", async (request, response) => {
 });
 
 router.post("/login", async (request, response) => {
-  const { email, password } = request.body;
+  const { email, password, audience } = request.body;
 
   if (!email || !password) {
     return response.status(400).json({ error: "Email and password are required." });
+  }
+
+  if (audience && !["candidate", "recruiter"].includes(audience)) {
+    return response.status(400).json({ error: "Invalid login audience." });
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return response.status(401).json({ error: error.message });
+  }
+
+  const userRole = data.user?.user_metadata?.role || data.user?.app_metadata?.role || "candidate";
+
+  if (audience && userRole !== audience) {
+    return response.status(403).json({
+      error:
+        audience === "candidate"
+          ? "This account belongs to a recruiter. Use the recruiter login area."
+          : "This account belongs to a candidate. Use the candidate login area.",
+    });
   }
 
   return response.json(data);

@@ -11,9 +11,9 @@ import {
   languageOptions,
 } from "../../data/jobOptions";
 import { createTranslator, getLanguageConfig } from "../../i18n/translations";
-import { FiChevronLeft, FiChevronRight, FiSearch, FiShare2, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiHeart, FiSearch, FiShare2, FiX } from "react-icons/fi";
 import { HiOutlineBriefcase } from "react-icons/hi2";
-import { trackJobEvent } from "../../services/api";
+import { removeSavedJobForCandidate, saveJobForCandidate, trackJobEvent } from "../../services/api";
 import "./JobsPage.css";
 
 const JOBS_PER_PAGE = 10;
@@ -74,7 +74,15 @@ function getPromotedPlanClass(plan) {
   return "pro";
 }
 
-function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function getFavoriteButtonClassName(isActive) {
+  return isActive ? "job-save-button job-save-button--favorite is-active" : "job-save-button job-save-button--favorite";
+}
+
+function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", authSession, candidateDashboard, onCandidateDashboardUpdate }) {
   const t = createTranslator(language);
   const locale = getLanguageConfig(language).locale;
   const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "", language: "", experience: "", highlight: "" });
@@ -82,6 +90,7 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const [openFaq, setOpenFaq] = useState(0);
   const [shareStatus, setShareStatus] = useState("");
   const [phoneMailModal, setphoneMailModal] = useState(false);
+  const [savingState, setSavingState] = useState({});
   const areas = useMemo(() => areaOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
   const contracts = useMemo(() => contractOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
   const languageFilters = useMemo(() => languageOptions.map((item) => ({ value: item.value, label: item.labels[language] })), [language]);
@@ -90,6 +99,10 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
   const todayIso = getTodayIso();
   const faqItems = t("jobs.faqItems", []);
   const hasActiveFilters = Object.values(filters).some(Boolean);
+  const authRole = authSession?.user?.user_metadata?.role || authSession?.user?.app_metadata?.role || "";
+  const candidateToken = authRole === "candidate" ? authSession?.session?.access_token : "";
+  const favoriteIds = new Set((candidateDashboard?.favorites || []).map((job) => job.id));
+  const applyLaterIds = new Set((candidateDashboard?.applyLater || []).map((job) => job.id));
 
   const filteredJobs = useMemo(() => {
     return jobs
@@ -242,6 +255,48 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
     }
   };
 
+  async function toggleSavedJob(job, listType) {
+    if (!candidateToken) {
+      window.location.hash = "#/login?audience=candidate";
+      return;
+    }
+
+    if (!isUuid(job.id)) {
+      window.alert(t("jobs.saveUnavailable", "Esta vaga ainda não está sincronizada com o banco de dados. Publique ou recarregue as vagas antes de salvar."));
+      return;
+    }
+
+    const isFavorite = listType === "favorite";
+    const activeSet = isFavorite ? favoriteIds : applyLaterIds;
+    const alreadySaved = activeSet.has(job.id);
+
+    try {
+      setSavingState((currentState) => ({ ...currentState, [`${job.id}:${listType}`]: true }));
+
+      if (alreadySaved) {
+        await removeSavedJobForCandidate(job.id, listType, candidateToken);
+      } else {
+        await saveJobForCandidate(job.id, listType, candidateToken);
+      }
+
+      const currentDashboard = candidateDashboard || { favorites: [], applyLater: [], user: null };
+      const nextFavorites = isFavorite
+        ? (alreadySaved ? currentDashboard.favorites.filter((item) => item.id !== job.id) : [{ ...job, savedAt: new Date().toISOString() }, ...currentDashboard.favorites.filter((item) => item.id !== job.id)])
+        : currentDashboard.favorites;
+      const nextApplyLater = !isFavorite
+        ? (alreadySaved ? currentDashboard.applyLater.filter((item) => item.id !== job.id) : [{ ...job, savedAt: new Date().toISOString() }, ...currentDashboard.applyLater.filter((item) => item.id !== job.id)])
+        : currentDashboard.applyLater;
+
+      onCandidateDashboardUpdate?.({
+        ...currentDashboard,
+        favorites: nextFavorites,
+        applyLater: nextApplyLater,
+      });
+    } finally {
+      setSavingState((currentState) => ({ ...currentState, [`${job.id}:${listType}`]: false }));
+    }
+  }
+
   if (selectedJob) {
     return (
       <main className="jobs-page">
@@ -323,6 +378,20 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                 <span>{t("jobs.applyPanelTitle")}</span>
                 <strong>{selectedJob.company}</strong>
                 <p>{t("jobs.applyPanelText")}</p>
+                <div className="job-detail__save-actions">
+                  <button
+                    type="button"
+                    className={getFavoriteButtonClassName(favoriteIds.has(selectedJob.id))}
+                    onClick={() => toggleSavedJob(selectedJob, "favorite")}
+                    disabled={savingState[`${selectedJob.id}:favorite`]}
+                  >
+                    <FiHeart aria-hidden="true" />
+                    {favoriteIds.has(selectedJob.id) ? t("jobs.removeFavorite", "Remover favorito") : t("jobs.addFavorite", "Favoritar")}
+                  </button>
+                  <button type="button" onClick={() => toggleSavedJob(selectedJob, "apply_later")}>
+                    {applyLaterIds.has(selectedJob.id) ? t("jobs.removeApplyLater", "Remover de aplicar depois") : t("jobs.addApplyLater", "Aplicar depois")}
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="job-detail__contact"
@@ -544,7 +613,18 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt" }) {
                     <span>{localizedJob.area}</span>
                     <span>{job.views || 0} {t("jobs.viewsCount")}</span>
                   </div>
-                  <a href={`#/vaga/${job.id}`}>{t("jobs.details")}</a>
+                  <div className="job-card__actions">
+                    <button
+                      type="button"
+                      className={getFavoriteButtonClassName(favoriteIds.has(job.id))}
+                      onClick={() => toggleSavedJob(job, "favorite")}
+                      disabled={savingState[`${job.id}:favorite`]}
+                    >
+                      <FiHeart aria-hidden="true" />
+                      {favoriteIds.has(job.id) ? t("jobs.removeFavorite", "Remover favorito") : t("jobs.addFavorite", "Favoritar")}
+                    </button>
+                    <a href={`#/vaga/${job.id}`}>{t("jobs.details")}</a>
+                  </div>
                 </footer>
               </article>
             );

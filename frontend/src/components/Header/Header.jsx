@@ -3,13 +3,14 @@ import { FiChevronDown, FiGlobe } from "react-icons/fi";
 import { createTranslator, languages } from "../../i18n/translations";
 import "./Header.css";
 
-function Header({ language = "pt", onLanguageChange, authSession, onLogout }) {
+function Header({ language = "pt", onLanguageChange, authSession, authRole, onLogout }) {
     const [isLanguageOpen, setIsLanguageOpen] = useState(false);
     const [currentHash, setCurrentHash] = useState(window.location.hash || "#/");
     const languageRef = useRef(null);
     const t = createTranslator(language);
     const activeLanguage = languages.find((option) => option.code === language) || languages[0];
     const isAuthenticated = Boolean(authSession?.session?.access_token);
+    const dashboardHref = authRole === "candidate" ? "#/candidato" : "#/recrutador";
     const navigationItems = [
         { href: "#/", label: t("header.home") },
         { href: "#/vagas", label: t("header.jobs") },
@@ -73,12 +74,14 @@ function Header({ language = "pt", onLanguageChange, authSession, onLogout }) {
                 <div className="header__actions">
                     {isAuthenticated ? (
                         <>
-                            <a className="header__link header__link--panel" href="#/recrutador">
+                            <a className="header__link header__link--panel" href={dashboardHref}>
                                 {t("header.dashboard")}
                             </a>
-                            <a className="header__button" href="#/publicar">
-                                {t("header.publishJob")}
-                            </a>
+                            {authRole === "recruiter" && (
+                                <a className="header__button" href="#/publicar">
+                                    {t("header.publishJob")}
+                                </a>
+                            )}
                             <button className="header__logout" type="button" onClick={onLogout}>
                                 {t("header.logout")}
                             </button>
@@ -88,7 +91,7 @@ function Header({ language = "pt", onLanguageChange, authSession, onLogout }) {
                             <a className="header__link" href="#/vagas">
                                 {t("header.findJob")}
                             </a>
-                            <a className="header__button" href="#/login">
+                            <a className="header__button" href="#/login?audience=candidate">
                                 {t("header.login")}
                             </a>
                         </>

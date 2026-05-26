@@ -29,11 +29,11 @@
     transition: transform 0.18s ease;
 }
 
-/* .header__brand:hover,
+.header__brand:hover,
 .header__brand:focus-visible {
     transform: translateY(-1px);
     outline: none;
-} */
+}
 
 .header__logo {
     width: 50px;
@@ -82,10 +82,9 @@
     justify-content: center;
     gap: 4px;
     min-height: 48px;
-    /* border: 1px solid #dbe3e8; */
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.82);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    /* box-shadow: inset 0 1px 0 rgba(233, 233, 233, 0.85); */
     padding: 5px;
 }
 

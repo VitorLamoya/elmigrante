@@ -1,0 +1,138 @@
+.candidate-page {
+  min-height: 100vh;
+  background: #f6f8fa;
+  color: #18212b;
+}
+
+.candidate-hero,
+.candidate-summary,
+.candidate-layout {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.candidate-hero {
+  padding: 48px 0 24px;
+}
+
+.candidate-hero p {
+  margin: 0;
+  color: #1f6b8f;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.candidate-hero h1 {
+  margin: 10px 0 0;
+  font-size: 34px;
+}
+
+.candidate-hero span {
+  display: block;
+  max-width: 680px;
+  margin-top: 10px;
+  color: #64717f;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.candidate-summary {
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.candidate-summary article {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+}
+
+.candidate-summary article + article {
+  border-left: 1px solid #eaecf0;
+}
+
+.candidate-summary span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.candidate-summary strong {
+  font-size: 20px;
+}
+
+.candidate-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 24px 0 72px;
+}
+
+.candidate-panel {
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 22px;
+}
+
+.candidate-panel__header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.candidate-panel__header h2,
+.candidate-panel__header p {
+  margin: 0;
+}
+
+.candidate-panel__header p {
+  color: #64717f;
+  font-size: 13px;
+}
+
+.candidate-panel__list {
+  display: grid;
+  gap: 12px;
+}
+
+.candidate-panel__item {
+  border: 1px solid #e5eaf0;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  color: inherit;
+  background: #fbfcfc;
+  text-decoration: none;
+  padding: 14px;
+}
+
+.candidate-panel__item:hover,
+.candidate-panel__item:focus-visible {
+  border-color: #1f6b8f;
+  outline: none;
+}
+
+.candidate-panel__item span,
+.candidate-panel__item small,
+.candidate-panel__empty {
+  color: #64717f;
+}
+
+@media (max-width: 800px) {
+  .candidate-summary,
+  .candidate-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-summary article + article {
+    border-left: 0;
+    border-top: 1px solid #eaecf0;
+  }
+}

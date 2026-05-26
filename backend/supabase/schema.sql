@@ -65,10 +65,26 @@ create unique index if not exists job_events_unique_visitor_event_idx
   on public.job_events (job_id, event_type, visitor_id)
   where visitor_id is not null;
 
+create table if not exists public.user_job_lists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  job_id uuid not null references public.jobs(id) on delete cascade,
+  list_type text not null check (list_type in ('favorite', 'apply_later')),
+  created_at timestamptz not null default now(),
+  unique (user_id, job_id, list_type)
+);
+
+create index if not exists user_job_lists_job_id_idx
+  on public.user_job_lists (job_id);
+
+create index if not exists user_job_lists_user_id_idx
+  on public.user_job_lists (user_id, list_type, created_at desc);
+
 alter table public.jobs enable row level security;
 
 alter table public.jobs alter column salary drop not null;
 alter table public.job_events enable row level security;
+alter table public.user_job_lists enable row level security;
 
 drop policy if exists "Public can read published jobs" on public.jobs;
 create policy "Public can read published jobs"
@@ -107,3 +123,10 @@ create policy "Recruiters can read own job events"
         and jobs.recruiter_id = auth.uid()
     )
   );
+
+drop policy if exists "Candidates can manage own saved jobs" on public.user_job_lists;
+create policy "Candidates can manage own saved jobs"
+  on public.user_job_lists
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

@@ -2,6 +2,7 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import authRoutes from "./routes/auth.routes.js";
+import candidateRoutes from "./routes/candidate.routes.js";
 import jobsRoutes from "./routes/jobs.routes.js";
 
 const app = express();
@@ -16,6 +17,7 @@ app.get("/health", (_request, response) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/candidate", candidateRoutes);
 app.use("/jobs", jobsRoutes);
 
 app.use((error, _request, response, _next) => {
