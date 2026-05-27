@@ -11,7 +11,7 @@ import {
   languageOptions,
 } from "../../data/jobOptions";
 import { createTranslator, getLanguageConfig } from "../../i18n/translations";
-import { FiChevronLeft, FiChevronRight, FiHeart, FiSearch, FiShare2, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiClock, FiHeart, FiSearch, FiShare2, FiX } from "react-icons/fi";
 import { HiOutlineBriefcase } from "react-icons/hi2";
 import { removeSavedJobForCandidate, saveJobForCandidate, trackJobEvent } from "../../services/api";
 import "./JobsPage.css";
@@ -80,6 +80,10 @@ function isUuid(value) {
 
 function getFavoriteButtonClassName(isActive) {
   return isActive ? "job-save-button job-save-button--favorite is-active" : "job-save-button job-save-button--favorite";
+}
+
+function getApplyLaterButtonClassName(isActive) {
+  return isActive ? "job-save-button job-save-button--apply-later is-active" : "job-save-button job-save-button--apply-later";
 }
 
 function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", authSession, candidateDashboard, onCandidateDashboardUpdate }) {
@@ -192,6 +196,20 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", auth
   const selectedJobRequirements = selectedJob ? getTextOrFallback(selectedJob.requirements, t("jobs.textNotInformed")) : "";
   const selectedJobBenefits = selectedJob ? getTextOrFallback(selectedJob.benefits, t("jobs.textNotInformed")) : "";
   const selectedJobPromotionClass = selectedJob ? getPromotedPlanClass(selectedJob.recruiterPlan) : "pro";
+  const selectedJobMapLocations = useMemo(() => {
+    if (!selectedJob || !Number.isFinite(selectedJob.latitude) || !Number.isFinite(selectedJob.longitude)) {
+      return [];
+    }
+
+    return [
+      {
+        latitude: selectedJob.latitude,
+        longitude: selectedJob.longitude,
+        label: `${selectedJobDisplay?.city || selectedJob.city}, ${selectedJobDisplay?.country || selectedJob.country}`,
+        count: 1,
+      },
+    ];
+  }, [selectedJob, selectedJobDisplay]);
 
   useEffect(() => {
     if (!selectedJob?.id) return;
@@ -314,6 +332,11 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", auth
               <div>
                 <h1>{selectedJob.title}</h1>
                 <p className="job-detail__company"><HiOutlineBriefcase color="blue" size={14}/> {selectedJob.company}</p>
+                <div className="job-detail__meta-line">
+                  <span>{selectedJobDisplay.city}, {selectedJobDisplay.country}</span>
+                  <span>{selectedJobDisplay.contract}</span>
+                  <span>{t("jobs.published")} {dateFormatter.format(new Date(`${selectedJob.publishedAt}T12:00:00`))}</span>
+                </div>
               </div>
               <button type="button" className="job-detail__share" onClick={shareJob}>
                 <FiShare2 aria-hidden="true" />
@@ -321,91 +344,118 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", auth
               </button>
             </header>
 
-            <div className="job-detail__facts job-detail__facts--grid">
-              <div>
-                <small>{t("jobs.salary")}</small>
-                <strong>{selectedJobSalary}</strong>
-              </div>
-              <div>
-                <small>{t("jobs.location")}</small>
-                <span>{selectedJobDisplay.city}, {selectedJobDisplay.country}</span>
-              </div>
-              <div>
-                <small>{t("jobs.contract")}</small>
-                <span>{selectedJobDisplay.contract}</span>
-              </div>
-              <div>
-                <small>{t("jobs.published")}</small>
-                <span>{dateFormatter.format(new Date(`${selectedJob.publishedAt}T12:00:00`))}</span>
-              </div>
-            </div>
+            <div className="job-detail__overview">
+              <div className="job-detail__content">
+                <div className="job-detail__facts job-detail__facts--grid">
+                  <div>
+                    <small>{t("jobs.salary")}</small>
+                    <strong>{selectedJobSalary}</strong>
+                  </div>
+                  <div>
+                    <small>{t("jobs.location")}</small>
+                    <span>{selectedJobDisplay.city}, {selectedJobDisplay.country}</span>
+                  </div>
+                  <div>
+                    <small>{t("jobs.contract")}</small>
+                    <span>{selectedJobDisplay.contract}</span>
+                  </div>
+                  <div>
+                    <small>{t("jobs.published")}</small>
+                    <span>{dateFormatter.format(new Date(`${selectedJob.publishedAt}T12:00:00`))}</span>
+                  </div>
+                </div>
 
-            <div className="job-detail__sections">
-              <section className="job-detail__section">
-                <h3>{t("jobs.description")}</h3>
-                <p>{selectedJob.description}</p>
-              </section>
-              <section className="job-detail__section">
-                <h3>{t("jobs.requirements")}</h3>
-                <p className={selectedJob.requirements?.trim() ? "" : "job-detail__text--fallback"}>{selectedJobRequirements}</p>
-              </section>
-              <section className="job-detail__section">
-                <h3>{t("jobs.languages")}</h3>
-                <ul className="job-detail__language-list">
-                  {selectedJobLanguages.map((item) => (
-                    <li key={`${item.language}-${item.level}`}>
-                      <span aria-hidden="true"></span>
-                      <strong>{item.language}</strong>
-                      {item.level && <small>{item.level}</small>}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-              <section className="job-detail__section">
-                <h3>{t("jobs.benefits")}</h3>
-                <p className={selectedJob.benefits?.trim() ? "" : "job-detail__text--fallback"}>{selectedJobBenefits}</p>
-              </section>
-            </div>
+                <div className="job-detail__sections">
+                  <section className="job-detail__section job-detail__section--primary">
+                    <h3>{t("jobs.description")}</h3>
+                    <p>{selectedJob.description}</p>
+                  </section>
+                  <section className="job-detail__section">
+                    <h3>{t("jobs.requirements")}</h3>
+                    <p className={selectedJob.requirements?.trim() ? "" : "job-detail__text--fallback"}>{selectedJobRequirements}</p>
+                  </section>
+                  <section className="job-detail__section">
+                    <h3>{t("jobs.languages")}</h3>
+                    <ul className="job-detail__language-list">
+                      {selectedJobLanguages.map((item) => (
+                        <li key={`${item.language}-${item.level}`}>
+                          <span aria-hidden="true"></span>
+                          <strong>{item.language}</strong>
+                          {item.level && <small>{item.level}</small>}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section className="job-detail__section">
+                    <h3>{t("jobs.benefits")}</h3>
+                    <p className={selectedJob.benefits?.trim() ? "" : "job-detail__text--fallback"}>{selectedJobBenefits}</p>
+                  </section>
+                </div>
 
-            {selectedJob.hasAccommodation && (
-              <section className="job-detail__housing" aria-label={t("jobs.housingTitle")}>
-                <strong>{t("jobs.housingTitle")}</strong>
-                <p>{t("jobs.housingText")}</p>
-              </section>
-            )}
+                {selectedJob.hasAccommodation && (
+                  <section className="job-detail__housing" aria-label={t("jobs.housingTitle")}>
+                    <strong>{t("jobs.housingTitle")}</strong>
+                    <p>{t("jobs.housingText")}</p>
+                  </section>
+                )}
+              </div>
 
-            <aside className="job-detail__apply-panel" aria-label={t("jobs.applyPanelTitle")}>
-                <span>{t("jobs.applyPanelTitle")}</span>
-                <strong>{selectedJob.company}</strong>
-                <p>{t("jobs.applyPanelText")}</p>
-                <div className="job-detail__save-actions">
+              <aside className="job-detail__sidebar">
+                <aside className="job-detail__apply-panel" aria-label={t("jobs.applyPanelTitle")}>
+                  <span>{t("jobs.applyPanelTitle")}</span>
+                  <strong>{selectedJob.company}</strong>
+                  <p>{t("jobs.applyPanelText")}</p>
+                  {selectedJobMapLocations.length > 0 && (
+                    <div className="job-detail__map job-detail__map--sidebar" aria-label={t("jobs.mapLabel")}>
+                      <JobsMap locations={selectedJobMapLocations} jobLabel={t("jobs.mapJob")} jobsLabel={t("jobs.mapJobs")} />
+                    </div>
+                  )}
+                  <div className="job-detail__apply-summary">
+                    <div>
+                      <small>{t("jobs.location")}</small>
+                      <span>{selectedJobDisplay.city}, {selectedJobDisplay.country}</span>
+                    </div>
+                    <div>
+                      <small>{t("jobs.salary")}</small>
+                      <span>{selectedJobSalary}</span>
+                    </div>
+                  </div>
+                  <div className="job-detail__save-actions">
+                    <button
+                      type="button"
+                      className={getFavoriteButtonClassName(favoriteIds.has(selectedJob.id))}
+                      onClick={() => toggleSavedJob(selectedJob, "favorite")}
+                      disabled={savingState[`${selectedJob.id}:favorite`]}
+                    >
+                      <FiHeart aria-hidden="true" />
+                      {favoriteIds.has(selectedJob.id) ? t("jobs.removeFavorite", "Remover favorito") : t("jobs.addFavorite", "Favoritar")}
+                    </button>
+                    <button
+                      type="button"
+                      className={getApplyLaterButtonClassName(applyLaterIds.has(selectedJob.id))}
+                      onClick={() => toggleSavedJob(selectedJob, "apply_later")}
+                      disabled={savingState[`${selectedJob.id}:apply_later`]}
+                    >
+                      <FiClock aria-hidden="true" />
+                      {applyLaterIds.has(selectedJob.id) ? t("jobs.removeApplyLater", "Remover de aplicar depois") : t("jobs.addApplyLater", "Aplicar depois")}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    className={getFavoriteButtonClassName(favoriteIds.has(selectedJob.id))}
-                    onClick={() => toggleSavedJob(selectedJob, "favorite")}
-                    disabled={savingState[`${selectedJob.id}:favorite`]}
+                    className="job-detail__contact"
+                    onClick={() => {
+                      trackJobEvent(selectedJob.id, "contact_click").catch(() => {});
+                      setphoneMailModal(true);
+                      return;
+                    }}
                   >
-                    <FiHeart aria-hidden="true" />
-                    {favoriteIds.has(selectedJob.id) ? t("jobs.removeFavorite", "Remover favorito") : t("jobs.addFavorite", "Favoritar")}
+                    {selectedJob.contactMethod === "phone"
+                      ? t("jobs.applyByPhone")
+                      : t("jobs.applyByEmail")}
                   </button>
-                  <button type="button" onClick={() => toggleSavedJob(selectedJob, "apply_later")}>
-                    {applyLaterIds.has(selectedJob.id) ? t("jobs.removeApplyLater", "Remover de aplicar depois") : t("jobs.addApplyLater", "Aplicar depois")}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="job-detail__contact"
-                  onClick={() => {
-                    trackJobEvent(selectedJob.id, "contact_click").catch(() => {});
-                    setphoneMailModal(true);
-                    return;
-                  }}
-                >
-                  {selectedJob.contactMethod === "phone"
-                    ? t("jobs.applyByPhone")
-                    : t("jobs.applyByEmail")}
-                </button>
+                </aside>
               </aside>
+            </div>
 
             <section className="job-detail__faq" aria-label={t("jobs.faqTitle")}>
               <h2>{t("jobs.faqTitle")}</h2>

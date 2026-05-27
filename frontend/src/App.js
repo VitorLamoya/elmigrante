@@ -261,7 +261,15 @@ function App() {
   return (
     <>
       <Header language={language} onLanguageChange={setLanguage} authSession={authSession} authRole={authRole} onLogout={handleLogout} />
-      {route.name === "home" && <LandingPage jobs={jobs} language={language} />}
+      {route.name === "home" && (
+        <LandingPage
+          jobs={jobs}
+          language={language}
+          authSession={authSession}
+          candidateDashboard={candidateDashboard}
+          onCandidateDashboardUpdate={handleCandidateDashboardUpdate}
+        />
+      )}
       {route.name === "jobs" && <JobsPage jobs={jobs} initialSearch={route.search} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />}
       {route.name === "login" && <AuthPage language={language} mode="login" audience={route.audience} onAuth={setAuthSession} />}
       {route.name === "register" && <AuthPage language={language} mode="register" audience={route.audience} onAuth={setAuthSession} />}

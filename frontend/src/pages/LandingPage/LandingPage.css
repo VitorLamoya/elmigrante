@@ -6,6 +6,9 @@
   --color-line: #dbe1e7;
   --color-accent: #0f766e;
   --color-accent-dark: #12343f;
+  --favorite-color: #d23b6e;
+  --favorite-color-dark: #b52d5c;
+  --favorite-tint: #fff4f7;
   --shadow-soft: 0 18px 40px rgba(24, 33, 43, 0.08);
 
   min-height: 100vh;
@@ -205,7 +208,14 @@
   grid-template-rows: auto auto auto 1fr auto auto;
 }
 
-.landing-job-card > span {
+.landing-job-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.landing-job-card__top > span {
   width: fit-content;
   min-height: 28px;
   border-radius: 999px;
@@ -217,6 +227,52 @@
   font-weight: 900;
   text-transform: uppercase;
   padding: 0 9px;
+}
+
+.landing-job-card__favorite {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e5e9ee;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b95a1;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease;
+}
+
+.landing-job-card__favorite svg {
+  width: 15px;
+  height: 15px;
+}
+
+.landing-job-card__favorite:hover,
+.landing-job-card__favorite:focus-visible {
+  border-color: #d8dee6;
+  color: var(--favorite-color);
+  background: var(--favorite-tint);
+  outline: none;
+}
+
+.landing-job-card__favorite.is-active {
+  border-color: rgba(210, 59, 110, 0.22);
+  color: var(--favorite-color);
+  background: var(--favorite-tint);
+}
+
+.landing-job-card__favorite.is-active:hover,
+.landing-job-card__favorite.is-active:focus-visible {
+  border-color: rgba(181, 45, 92, 0.28);
+  color: var(--favorite-color-dark);
+  background: #ffedf3;
+}
+
+.landing-job-card__favorite:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .landing-job-card h3 {
