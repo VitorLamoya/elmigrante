@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Footer from "./components/Footer/Footer";
 import Header from "./components/Header/Header";
-import { initialJobs } from "./data/jobs";
-import {
-  areaOptions,
-  contractOptions,
-  experienceOptions,
-  findCityValue,
-  findCountryValue,
-  findOptionValue,
-} from "./data/jobOptions";
 import { getLanguageConfig } from "./i18n/translations";
 import AuthPage from "./pages/AuthPage/AuthPage";
 import CandidatePage from "./pages/CandidatePage/CandidatePage";
@@ -18,13 +9,8 @@ import LandingPage from "./pages/LandingPage/LandingPage";
 import RecruiterPage from "./pages/RecruiterPage/RecruiterPage";
 import { createJob, deleteJob, getCandidateDashboard, getJobs, setUnauthorizedHandler } from "./services/api";
 
-const legacyJobsStorageKey = "elmigrante.jobs";
 const languageStorageKey = "elmigrante.language";
 const authStorageKey = "elmigrante.auth";
-
-function hasPromotedPlacement(plan) {
-  return plan === "business" || plan === "enterprise";
-}
 
 function getRouteFromHash() {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -80,26 +66,6 @@ function getRouteFromHash() {
   return { name: "home" };
 }
 
-function loadFallbackJobs() {
-  return initialJobs.map((job) => ({
-    ...job,
-    country: job.country || job.state || "",
-    countryCode: job.countryCode || findCountryValue(job.country || job.state || ""),
-    cityCode: job.cityCode || findCityValue(job.countryCode || findCountryValue(job.country || job.state || ""), job.city),
-    latitude: job.latitude ?? null,
-    longitude: job.longitude ?? null,
-    areaCode: job.areaCode || findOptionValue(areaOptions, job.area),
-    contractCode: job.contractCode || findOptionValue(contractOptions, job.contract),
-    experienceCode: job.experienceCode || findOptionValue(experienceOptions, job.experience),
-    languageItems: Array.isArray(job.languageItems) ? job.languageItems : [],
-    contactMethod: job.contactMethod || "email",
-    recruiterPlan: job.recruiterPlan || "free",
-    isPromoted: hasPromotedPlacement(job.recruiterPlan || "free"),
-    isUrgent: Boolean(job.isUrgent),
-    hasAccommodation: Boolean(job.hasAccommodation),
-  }));
-}
-
 function scrollToPageTop() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
@@ -116,7 +82,8 @@ function isSessionExpired(authSession) {
 
 function App() {
   const [route, setRoute] = useState(getRouteFromHash);
-  const [jobs, setJobs] = useState(loadFallbackJobs);
+  const [jobs, setJobs] = useState([]);
+  const [isJobsLoading, setIsJobsLoading] = useState(true);
   const [language, setLanguage] = useState(() => localStorage.getItem(languageStorageKey) || "pt");
   const [authSession, setAuthSession] = useState(() => {
     try {
@@ -139,16 +106,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.removeItem(legacyJobsStorageKey);
-  }, []);
-
-  useEffect(() => {
     async function loadRemoteJobs() {
+      setIsJobsLoading(true);
       try {
         const remoteJobs = await getJobs();
-        setJobs(remoteJobs.length > 0 ? remoteJobs : loadFallbackJobs());
+        setJobs(Array.isArray(remoteJobs) ? remoteJobs : []);
       } catch (error) {
-        setJobs(loadFallbackJobs());
+        setJobs([]);
+      } finally {
+        setIsJobsLoading(false);
       }
     }
 
@@ -264,20 +230,21 @@ function App() {
       {route.name === "home" && (
         <LandingPage
           jobs={jobs}
+          isJobsLoading={isJobsLoading}
           language={language}
           authSession={authSession}
           candidateDashboard={candidateDashboard}
           onCandidateDashboardUpdate={handleCandidateDashboardUpdate}
         />
       )}
-      {route.name === "jobs" && <JobsPage jobs={jobs} initialSearch={route.search} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />}
+      {route.name === "jobs" && <JobsPage jobs={jobs} isJobsLoading={isJobsLoading} initialSearch={route.search} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />}
       {route.name === "login" && <AuthPage language={language} mode="login" audience={route.audience} onAuth={setAuthSession} />}
       {route.name === "register" && <AuthPage language={language} mode="register" audience={route.audience} onAuth={setAuthSession} />}
       {route.name === "jobDetail" && (
         selectedJob ? (
-          <JobsPage jobs={jobs} selectedJob={selectedJob} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />
+          <JobsPage jobs={jobs} isJobsLoading={isJobsLoading} selectedJob={selectedJob} language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />
         ) : (
-          <JobsPage jobs={jobs} initialSearch="" language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />
+          <JobsPage jobs={jobs} isJobsLoading={isJobsLoading} initialSearch="" language={language} authSession={authSession} candidateDashboard={candidateDashboard} onCandidateDashboardUpdate={handleCandidateDashboardUpdate} />
         )
       )}
       {route.name === "recruiter" && (

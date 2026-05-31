@@ -86,7 +86,7 @@ function getApplyLaterButtonClassName(isActive) {
   return isActive ? "job-save-button job-save-button--apply-later is-active" : "job-save-button job-save-button--apply-later";
 }
 
-function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", authSession, candidateDashboard, onCandidateDashboardUpdate }) {
+function JobsPage({ jobs, isJobsLoading = false, selectedJob, initialSearch = "", language = "pt", authSession, candidateDashboard, onCandidateDashboardUpdate }) {
   const t = createTranslator(language);
   const locale = getLanguageConfig(language).locale;
   const [filters, setFilters] = useState({ search: initialSearch, city: "", area: "", contract: "", language: "", experience: "", highlight: "" });
@@ -541,6 +541,39 @@ function JobsPage({ jobs, selectedJob, initialSearch = "", language = "pt", auth
             </div>
           </div>
         )}
+      </main>
+    );
+  }
+
+  if (isJobsLoading) {
+    return (
+      <main className="jobs-page">
+        <section className="jobs-hero jobs-hero--loading" aria-hidden="true">
+          <div className="jobs-loading-block jobs-loading-block--hero" />
+          <div className="jobs-loading-block jobs-loading-block--counter" />
+        </section>
+
+        <section className="jobs-map jobs-map--loading" aria-hidden="true">
+          <div className="jobs-loading-block jobs-loading-block--map-copy" />
+          <div className="jobs-loading-block jobs-loading-block--map" />
+        </section>
+
+        <section className="jobs-layout">
+          <aside className="jobs-filters jobs-filters--loading" aria-hidden="true">
+            <div className="jobs-loading-block jobs-loading-block--filters" />
+          </aside>
+          <section className="jobs-results" aria-hidden="true">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <article className="job-card job-card--loading" key={`jobs-loading-${index}`}>
+                <div className="jobs-loading-block jobs-loading-block--title" />
+                <div className="jobs-loading-block jobs-loading-block--line" />
+                <div className="jobs-loading-block jobs-loading-block--tags" />
+                <div className="jobs-loading-block jobs-loading-block--description" />
+                <div className="jobs-loading-block jobs-loading-block--footer" />
+              </article>
+            ))}
+          </section>
+        </section>
       </main>
     );
   }

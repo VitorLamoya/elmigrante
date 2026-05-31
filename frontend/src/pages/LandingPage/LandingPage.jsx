@@ -10,7 +10,7 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
-function LandingPage({ jobs, language = "pt", authSession, candidateDashboard, onCandidateDashboardUpdate }) {
+function LandingPage({ jobs, isJobsLoading = false, language = "pt", authSession, candidateDashboard, onCandidateDashboardUpdate }) {
   const t = createTranslator(language);
   const locale = getLanguageConfig(language).locale;
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -112,6 +112,22 @@ function LandingPage({ jobs, language = "pt", authSession, candidateDashboard, o
         </div>
 
         <div className="landing-jobs__grid">
+          {isJobsLoading && (
+            <>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <article className="landing-job-card landing-job-card--loading" key={`landing-loading-${index}`} aria-hidden="true">
+                  <div className="landing-skeleton landing-skeleton--pill" />
+                  <div className="landing-skeleton landing-skeleton--title" />
+                  <div className="landing-skeleton landing-skeleton--line" />
+                  <div className="landing-skeleton landing-skeleton--block" />
+                  <div className="landing-skeleton landing-skeleton--line" />
+                  <div className="landing-skeleton landing-skeleton--button" />
+                </article>
+              ))}
+            </>
+          )}
+          {!isJobsLoading && (
+            <>
           {visibleJobs.map((job) => {
             const localizedJob = getLocalizedJob(job, language);
             const isFavorite = favoriteIds.has(job.id);
@@ -152,6 +168,8 @@ function LandingPage({ jobs, language = "pt", authSession, candidateDashboard, o
               <h3>{t("jobs.emptyTitle")}</h3>
               <p>{t("jobs.emptyText")}</p>
             </div>
+          )}
+            </>
           )}
         </div>
       </section>
